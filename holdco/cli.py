@@ -229,9 +229,19 @@ def cmd_record(args) -> int:
 def cmd_record_run(args) -> int:
     ws = _ws(args)
     result = jobs.record_run(ws, ws.business(args.business), args.job, _load_json_arg(args.file))
+    job = result["job"]
+    if args.json:
+        review = job["reviews"][-1] if job["reviews"] else None
+        question = next((q for q in reversed(job["questions"]) if q["answer"] is None), None)
+        _print_json({"job": job["id"], "state": job["state"], "summary": result["summary"],
+                     "drafts": len(job["drafts"]), "children": job["children"],
+                     "last_review": review and {k: review.get(k) for k in ("version", "verdict", "score",
+                                                                           "findings", "note")},
+                     "open_question": question and question["question"]})
+        return 0
     for line in result["summary"]:
         print(f"- {line}")
-    print(f"{args.job} is now {result['job']['state']}.")
+    print(f"{args.job} is now {job['state']}.")
     return 0
 
 
@@ -500,6 +510,9 @@ def cmd_golden_list(args) -> int:
 def cmd_golden_materialize(args) -> int:
     ws = _ws(args)
     job = golden.materialize(ws, ws.business(args.business), args.case)
+    if args.json:
+        _print_json({"case": args.case, "job": job["id"], "state": job["state"]})
+        return 0
     print(f"Created eval job {job['id']} from {args.case}. Run the agents on it, then: "
           f"python3 -m holdco golden compare {args.business} {args.case} --job {job['id']}")
     return 0
@@ -644,6 +657,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("business")
     s.add_argument("job")
     s.add_argument("--file", default="-")
+    s.add_argument("--json", action="store_true", help="print the resulting state and last review as JSON")
     s.set_defaults(fn=cmd_record_run)
     s = sub.add_parser("check", help="run machine checks on a job's latest draft")
     s.add_argument("business")
@@ -764,6 +778,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = gold.add_parser("materialize", help="turn a golden case into an eval job for the Claude agents")
     s.add_argument("business")
     s.add_argument("case")
+    s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_golden_materialize)
     s = gold.add_parser("compare", help="compare an eval job's latest draft to the accepted output")
     s.add_argument("business")
