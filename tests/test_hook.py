@@ -91,6 +91,8 @@ class Hook(unittest.TestCase):
         self.assertAllowed("Bash", command="python3 - <<'EOF'\ntext = 'jobs.approve(ws, biz, job_id)'\n"
                                            "open('notes.txt', 'w').write(text)\nEOF")
         self.assertAllowed("Write", file_path="/r/businesses/x/jobs/J1/work/draft.v1.json")
+        self.assertAllowed("Write", file_path="/r/shared/golden/README.md")
+        self.assertBlocked("Write", file_path="/r/shared/golden/bookkeeping/G-0001/README.md")
         self.assertAllowed("Write", file_path="/r/businesses/x/jobs/J1/work/run.json")
         self.assertAllowed("Edit", file_path="/r/businesses/x/rules.md")
         self.assertAllowed("Write", file_path="/r/docs/PLAYBOOK.md")

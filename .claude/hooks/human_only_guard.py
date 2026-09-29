@@ -115,6 +115,8 @@ def check_path(path: str) -> str | None:
     if PROTECTED.search(normalized):
         if "/work/" in normalized and not normalized.endswith(("job.json", "approved.json")):
             return None
+        if normalized.endswith("/golden/README.md"):  # documentation about the cases, not a case
+            return None
         return (f"{path} is protected holdco state. Agents write drafts only to a job's work/ folder; "
                 "approvals, sends, logs and golden cases are written by the holdco CLI for a person.")
     return None
