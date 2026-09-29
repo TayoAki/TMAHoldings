@@ -38,10 +38,11 @@ As of SBA SOP 50 10 8.1 (loans numbered on or after Oct 1, 2026). Confirm every 
   counts toward it only if it is on full standby for the whole loan term, and then for at most half.
 - **No earnouts** on SBA deals. Put retention protection in as a **buyer rebate** (for example a
   12-month client-retention clawback) that pays down loan principal.
-- **Seller transition:** in a first acquisition the seller can't stay as an owner or employee,
-  only as a consultant (up to 24 months total under 8.1). Seller equity rollover only works as a
-  partial stock sale, with the seller guaranteeing the loan for 2 years; a new holding company
-  owned by both of you is ineligible.
+- **Seller transition:** when you buy control, the seller exits fully: they can't stay as an owner
+  or employee, only as a consultant (up to 24 months total under 8.1). So **seller rollover equity
+  is not available** in a control acquisition with SBA money, and a new holding company owned by
+  both of you is ineligible. If the seller must keep a stake, use a seller note on full standby
+  instead, or non-SBA financing, and have your lender confirm the structure.
 - **Coverage:** lenders want debt-service coverage of at least 1.25x on today's earnings, and
   an independent valuation above a $350k price (a quality-of-earnings report at $3M+).
 - **Guaranty cap:** SBA guarantees at most $3.75M per borrower including affiliates, so all
@@ -62,6 +63,15 @@ As of SBA SOP 50 10 8.1 (loans numbered on or after Oct 1, 2026). Confirm every 
 - [ ] Claims: E&O claims, complaints, regulator letters.
 
 ## Walk away when
-Coverage is under 1.0x on today's earnings; one client is over 30% of revenue; there is no GM
-candidate and the owner leaves at closing; licensing makes you a passive owner of regulated
-work; or the owner wants to be paid for the AI upside.
+Any of these is true (they are the `hard_fail` rules in `thesis/buy-box.json`, so `deal score`
+says WALK AWAY):
+- the industry isn't in the thesis;
+- licensing would make you a passive owner of regulated work;
+- coverage is under 1.0x on today's earnings;
+- one client is over 30% of revenue;
+- there is no GM candidate;
+- the owner leaves at closing;
+- the owner wants to be paid for the AI upside.
+
+Everything else in the buy box (price, years, clients, recurring revenue, billing model, how
+long the owner stays) is a reason to negotiate or dig deeper, not to walk.

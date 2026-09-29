@@ -18,13 +18,16 @@ Default criteria (override in `business.json` → `"graduation": {...}`):
 1. Read the report with the GM. Ask: "Would you be comfortable approving these drafts after a
    quick read?" If the GM says no, the answer is no, whatever the numbers say.
 2. Run the golden cases: `python3 -m holdco eval <biz>` (demo runner) or the `holdco-eval` workflow.
+   Rules accepted during shadow mode are tested against the staff's own versions. No golden cases
+   yet means no rules were learned: that is a finding to discuss, not a pass.
 3. Switch, **(you)**:
    `python3 -m holdco rollout <biz> <job-type> assisted --by "<you>" --reason "graduation report ready; GM agrees"`
    The decision is logged in `rollout-log.jsonl`.
 
 ## The first two weeks in assisted mode
-- The GM approves every job and records minutes (`--minutes`). Watch minutes per job and the
-  share of drafts needing fixes on Monday.
+- The GM approves every job with their passphrase and records minutes
+  (`approve ... --minutes 6 --send`), then runs `outbox verify` before emailing anything. Watch
+  minutes per job and the share of drafts needing fixes on Monday.
 - Nothing changes about the rule: a person approves everything before it reaches a client.
 
 ## Roll back to shadow when
@@ -34,4 +37,5 @@ Default criteria (override in `business.json` → `"graduation": {...}`):
 - the GM asks.
 
 **(you)** `python3 -m holdco rollout <biz> <job-type> shadow --by "<you>" --reason "..."`
-Rolling back is not failure; it's the system working.
+Rolling back is not failure; it's the system working. The graduation report then counts only
+shadow jobs done after the rollback, so the job type earns its way back on fresh evidence.

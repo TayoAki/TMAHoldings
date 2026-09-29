@@ -18,16 +18,19 @@ are written down, and the business is plugged into the holdco without a client n
 
 ## Day one, morning (all staff, seller present)
 1. The seller introduces you and says why they chose you. Keep it short and human.
-2. You say what changes in the next 30 days: **nothing clients can see.** Same people, same
-   service, same prices, same software.
+2. You say what changes for now: **nothing clients can see**, until each kind of work has
+   proven itself in the background (weeks, not days). Same people, same service, same prices,
+   same software.
 3. You introduce the GM as the person running the business, and say they have real upside.
 4. You explain the agents honestly: trainees that do first drafts in the background while
    everyone keeps working as usual; staff check the drafts and their fixes become the firm's
    rules. Their expertise is what makes this work. Only promise job security you can keep.
 
 ## Day one, afternoon (you and the GM, two hours)
-5. Create the business folder:
-   `python3 -m holdco new-business <slug> --name "<Name>" --industry <industry> --gm "<GM name>"`
+5. Create the business folder, then the GM and you each set an approval passphrase in your own
+   terminals (the GM approves client work; you, as owner, make the rule and rollout calls):
+   `python3 -m holdco new-business <slug> --name "<Name>" --industry <industry> --gm "<GM name>" --owner "<you>"`
+   **(you)** `python3 -m holdco keys add <slug> --by "<GM name>"` and `... --by "<you>"`
 6. Interview the GM and fill in, in this order:
    - `clients.md` for the top 20 clients by revenue *and* the 5 most sensitive: who they are
      loyal to, what they are sensitive about, their quirks, what would make them leave.
@@ -36,9 +39,12 @@ are written down, and the business is plugged into the holdco without a client n
      fees", "Y gets theirs on the 3rd because they asked in 2011".
 7. Baselines: `clients.csv` (roster with start dates, status, fee), `financials.csv` (last 12
    months of revenue and costs), `pulse.csv` (first check-in on each key person).
-8. Pick the first job type for shadow mode: the most repetitive, lowest-risk work (document
-   chasing, or the monthly close for the 5 messiest clients). In `business.json` set
-   `"rollout": {"<job-type>": "shadow"}`, and list the GM in `approvers`.
+8. Pick the first job type for shadow mode: high-volume, repetitive, low-risk work, so it reaches
+   the 20 shadow jobs graduation needs in weeks (the monthly close across all clients, or
+   document chasing). Five messy clients make a good wedge offer (runbook 10) but too few jobs to
+   graduate on. `new-business` already lists the GM in `approvers`, you in `owners`, and puts the
+   template's job type in shadow; add the first job type to `"rollout"` in `business.json` if it
+   is a different one (new job types start in shadow anyway).
 
 ## Do not, on day one
 - Change prices, roles, or client-facing software.

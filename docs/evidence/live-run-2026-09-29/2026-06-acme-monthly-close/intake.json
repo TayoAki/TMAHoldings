@@ -1,0 +1,14 @@
+{
+  "status": "complete",
+  "documents_found": [
+    "bank.csv",
+    "receipts.csv",
+    "statement.json"
+  ],
+  "missing": [],
+  "rules_applied": [
+    "BK-001",
+    "BK-002"
+  ],
+  "recorded_at": "2026-09-29T01:44:01+00:00"
+}

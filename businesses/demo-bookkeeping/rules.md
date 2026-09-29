@@ -20,7 +20,7 @@ review. Write them in plain English: agents read the `Rule` line, code runs the 
 - **Rule:** End every client message with "— Dana". Clients have worked with Dana for years; messages come from her, not from "the team".
 - **Why:** Continuity. Clients should not notice the change of ownership.
 - **Check:** `{"type": "signoff", "text": "— Dana"}`
-- **Source:** first-30-days runbook
+- **Source:** shadow-mode runbook (02)
 
 ## R-DEMO-003 · Acme: Greenleaf Nursery purchases are Materials (COGS)
 - **Applies to:** monthly-close

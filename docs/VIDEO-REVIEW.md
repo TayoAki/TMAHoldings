@@ -9,20 +9,24 @@ lawyer, a CPA and an SBA lender confirm anything you rely on.*
 - **The thesis holds up, with the numbers softened.** Retiring owners, capable agents, and firms
   priced like their margins can't change: all three are real. But McKinsey says *up to* $5T across
   *viable sale candidates*, not "a million businesses will sell". Most exits today are closures.
-- **The fund examples are real, but self-reported and partly out of date.** Thrive Holdings (about
-  50 accounting practices, $1B more committed) and the 31% time saving in its tax pilot check out
-  as company claims. Several General Catalyst figures trace back to one unsourced blog post.
+- **The fund examples are real, but self-reported and partly out of date.** Thrive Holdings' $1B
+  commitment and the 31% time saving in its tax pilot check out as company claims; its firm count
+  conflicts ("nearly 50" practices in press reports, "almost 30" firms in the platform's own
+  release). Several General Catalyst figures trace back to one unsourced blog post.
 - **The operating model is the valuable part, and it's right:** a shared layer of agents and rules,
   a GM with real upside, a person approving everything before it reaches a client, and a
-  corrections log turned into rules every week. This repo implements all of it and proves the
-  mechanics with a runnable demo (20/20 proofs), 75 tests, and a live run with real Claude agents.
-- **The margin claim needs arithmetic.** At the reported 31% time saving, a 10%-margin firm gets to
-  roughly 15–25%, depending on how much freed time you actually capture. 30–40% takes agents doing
-  about half the labor hours *and* capturing most of them. Plan on the lower number.
+  corrections log turned into rules every week. This repo implements all of it and tests the
+  mechanics: a runnable demo (22/22 proofs), 137 tests, and one end-to-end run with real Claude
+  agents (`docs/evidence/`). None of that measures accuracy on real client work; shadow mode does.
+- **The margin claim needs arithmetic.** If agents take over 31% of labor hours (the pilot's
+  self-reported saving, assumed here to carry over to bookkeeping), a 10%-margin firm lands at about
+  9–25% depending on how much freed time you capture: 15–25% only if you capture half or more.
+  30–40% takes agents doing about half the labor hours *and* capturing most of them. Plan on the
+  lower number.
 - **The biggest gaps are legal and financial:** who is allowed to own an accounting, insurance or
   property-management firm; client-data law; and SBA loan rules that change on **Oct 1, 2026**
-  (no earnouts, the seller can't stay as an employee, and the seller can't roll equity into a new
-  holding company).
+  (no earnouts; when you buy control the seller exits fully, so no seller rollover equity; a new
+  holding company owned by both buyer and seller is ineligible).
 - **The start is the best advice in the episode:** sell one annoying job to firms in one industry
   first, then buy one when an owner is ready. That is a demand-first path, and your existing
   skills already cover it.
@@ -48,13 +52,13 @@ lawyer, a CPA and an SBA lender confirm anything you rely on.*
 | # | What the episode says | What the source says | Verdict |
 |---|---|---|---|
 | 1 | $5T, about 1M businesses selling by 2035 (McKinsey) | About 6M US small and mid-size businesses face ownership transitions by 2035; "more than one million firms are viable candidates for sale, representing up to $5 trillion in enterprise value." 52% of owners are within 10 years of retiring. In 2022, 92% of exits were closures, 5% sales and 3% transfers. [1][2] | **Partly right.** The numbers are real, but they measure viable candidates and a ceiling, not a forecast of sales. |
-| 2 | Thrive Holdings bought close to 50 accounting firms in 24 months and committed another $1B | "A two year-long acquisition binge of nearly 50 local accounting practices" and "committing $1 billion". The platform (Crete Professionals Alliance, renamed Current in Jun 2026) itself counts "almost 30" firms, 2,000+ staff, $500M+ revenue. OpenAI took a stake in Dec 2025. [3][4][5] | **Verified**, counting partner-firm deals. |
+| 2 | Thrive Holdings bought close to 50 accounting firms in 24 months and committed another $1B | "A two year-long acquisition binge of nearly 50 local accounting practices" and "committing $1 billion". The platform (Crete Professionals Alliance, renamed Current in Jun 2026) itself counts "almost 30" firms, 2,000+ staff, $500M+ revenue. OpenAI took a stake in Dec 2025. [3][4][5] | **Conflicting.** The $1B is confirmed; the count is "nearly 50" practices in press reports but "almost 30" firms in the platform's own release. Treat it as 30–50. |
 | 3 | Larson Gross: since 1949, 5 offices, 200 people; AI on OpenAI Codex; 7,000 returns; 31% time saved; 180 hours to 15; interns now review | All confirmed as company statements. But the 7,000 returns and the 31% are Current's multi-firm pilot, in which Larson Gross was one of the first firms; OpenAI describes it as "about a third" less prep time with up to 97% accuracy. Nothing is independently audited. [3][6][7] | **Verified, self-reported**, attribution broader than stated. |
 | 4 | General Catalyst set aside $1.5B; put $750M+ into at least 10 companies | $1.5B for its "Creation" strategy in Fund XII (Oct 2024) is confirmed. "At least ten" co-created companies is reported elsewhere. The $750M figure appears only in an unsourced blog post. [8][9] | **Half verified.** |
 | 5 | Long Lake: 18 property-management acquisitions, $100M EBITDA in under 2 years, margins doubling | 18 acquisitions was true in Aug 2025; by May 2026 it was 30, including a $6.3B deal for Amex GBT. "$100M EBITDA in under 2 years" was said of "some" GC companies without naming Long Lake. GC's CEO says Long Lake doubled free cash flow in its HOA businesses "without reducing headcount." [9][10] | **Outdated / unattributed.** |
 | 6 | Crescendo: AI handles about 90% of frontline tickets | Marketing says "up to 90%"; its homepage says "70% resolution from day one"; one named customer reports 67%. [11] | **A ceiling, not an average.** |
 | 7 | GC deals pay 60–70% cash, founders roll about 30% | The 30% rollover is a GC partner's example. The 60–70% cash figure has no primary source. PE deals for CPA firms are often 50% cash, 20% on performance, and 30% rolled equity. [12][13] | **Half verified.** |
-| 8 | Service firms run at 5–10% profit | GC's partner uses "5 to 10% EBITDA". Benchmarks vary by industry and by how owner pay is counted: property management averaged 6% (2017) and 11% (2021); top-performing insurance agencies 26%; accounting, tax and bookkeeping firms about 14% net in IRS-based data (secondary source). [12][14][15] | **Plausible after paying the owner a market salary**; varies by industry. |
+| 8 | Service firms run at 5–10% profit | GC's partner uses "5 to 10% EBITDA". Benchmarks vary by industry and by how owner pay is counted: property management averaged 6% (2017) and 11% (2021); top-performing insurance agencies 26%; accounting, tax and bookkeeping firms about 14% net in IRS-based data (secondary source). [12][14][15] | **Low for our industry.** 5–10% fits some sectors after paying the owner a market salary, but accounting, tax and bookkeeping benchmark nearer 14%, and the fictional example target runs at about 18%. The model below starts at 10%; `model margin --other 0.31` starts at 14%. |
 
 What the checking changes: nothing about the direction, a lot about the confidence. Treat every
 fund number as a signal from companies that are raising money, and none of them has been through a
@@ -68,7 +72,10 @@ that are freed but not captured become slack, extra review, or rework.
 
 `python3 -m holdco model margin` runs a simple, transparent model: a firm at 10% margin, labor at
 55% of revenue, other costs at 35%, 5% of revenue lost in the transition, and agents costing 3% of
-revenue.
+revenue. Two more assumptions drive every cell: 40% of the captured hours are resold to new
+clients (the other 60% are captured through attrition), and 60% of other costs are fixed. And the
+31% row applies a tax-prep pilot's self-reported saving to all the labor hours of a bookkeeping
+firm, which is an assumption, not a measurement.
 
 | Share of labor hours agents take over | Capture 25% | Capture 50% | Capture 75% | Capture 100% |
 |---|---|---|---|---|
@@ -78,8 +85,11 @@ revenue.
 | 50% | 14.5% | 24.1% | 32.1% | 38.9% |
 
 What this says:
-- At the reported 31% saving, you land between about **15% and 25%**, depending on capture. Even
-  the best case (every freed hour captured through attrition, no churn, free agents) is about 27%.
+- At a 31% saving you land between about **9% and 25%**, depending on capture: 15–25% only if you
+  capture half or more, and at 25% capture you end *below* today's 10% (transition churn and agent
+  costs eat the gain). With no churn and free agents, the best case is about 27% if every freed hour
+  is captured through attrition, or about 34% if every one is resold to new clients. From a 5% start
+  (`--other 0.40`) the same row runs about 4–20%; from a 14% start (`--other 0.31`), 13–29%.
 - **30–40% needs agents doing about half the labor hours** and you capturing most of them.
   Possible, but it's the thesis case, not the plan.
 - **Hourly billing breaks the model.** If the firm bills by the hour, doing the work faster cuts
@@ -92,16 +102,22 @@ What this says:
 
 1. **The shared layer.** Build it once and every business plugs in: `shared/agents`, `shared/rules`,
    `shared/job-types`, `shared/runbooks`, `shared/golden`.
-2. **The reviewer can block but never send; a person approves everything.** Enforced three ways:
-   the CLI refuses human-only commands inside any agent session, a Claude Code hook blocks them
-   before they run, and `send` checks the content hash of what the person approved. The demo and
-   the tests prove each one.
+2. **The reviewer can block but never send; a person approves everything.** Enforced in layers:
+   the library refuses human-only actions inside any agent session or without a terminal;
+   approvals and releases are signed with the approver's passphrase, and `holdco outbox verify`
+   checks what was released; a Claude Code hook blocks attempts before they run; and inputs,
+   drafts and approvals are hashed. The demo and the tests exercise each layer. None of it stops a
+   program that controls your own OS account from rewriting files, which is why runbook 09 has
+   agents run as a separate user for real client work.
 3. **Plain-English agent files** whose "never" and "stop and ask" sections carry the most weight: `shared/agents/`.
 4. **The corrections log is the moat.** Every edit becomes a categorized correction; fixes repeated
    across jobs become proposed rules; accepted rules become regression tests from the original input
    and the accepted output. `holdco corrections review`, `rules accept`, `eval`.
-5. **Change nothing clients see for 30 days.** Shadow mode: agent drafts can't be approved or sent,
-   and each difference from the person's own work is logged. `holdco shadow`, `graduation`, `rollout`.
+5. **Change nothing clients see until the evidence says so.** The episode says 30 days; here it's
+   tied to evidence instead: shadow mode until a job type has 20+ shadow jobs with few differences
+   and no recent factual errors, so start with a high-volume job type. Agent drafts can't be
+   approved or sent meanwhile, and each difference from the person's own work is logged.
+   `holdco shadow`, `graduation`, `rollout`.
 6. **A GM who already works there, with real upside.** Runbook 11.
 7. **Five Monday numbers**, including the two most people skip (retention and whether key people are
    staying), plus an alert when margin rises while clients leave. `holdco metrics`.
@@ -145,15 +161,17 @@ What this says:
   if it is on full standby for the whole loan term, and then for at most half.
 - **Seller earnouts are not allowed.** Retention protection has to be a buyer rebate that pays down
   the loan.
-- In a first acquisition the seller can't stay as an owner or employee, only as a consultant (up to
-  24 months in total). Seller rollover only works as a partial stock sale with a 2-year personal
-  guarantee from the seller. **A new holding company owned by both buyer and seller is ineligible.**
+- When you buy control, the seller exits fully: they can't stay as an owner or employee, only as a
+  consultant (up to 24 months in total). So **seller rollover equity is not available in a control
+  acquisition** with SBA money, and **a new holding company owned by both buyer and seller is
+  ineligible.** If the seller must keep a stake, the deal needs a standby seller note or non-SBA money.
 - At least 1.25x debt-service coverage; an independent valuation above a $350k price; a
   quality-of-earnings report at $3M or more; up to 10-year terms; $5M maximum loan.
 - **The SBA guarantees at most $3.75M per borrower including affiliates**: every business the
   holdco controls shares that cap. This is the constraint a serial acquirer hits first.
 - Since Mar 1, 2026, every owner and guarantor must be a US citizen or national living in the US.
-- The GC-style "60–70% cash plus 30% rollover" structure mostly does not work with SBA money.
+- So the GC-style "60–70% cash plus 30% rollover" structure does not work with SBA money for a
+  control acquisition.
 
 **Prices for small firms** [33]–[37]
 
@@ -203,7 +221,7 @@ Phase 4 once the holdco itself works, not now.
    rules file, the relationships and the cash flow before you own anything.
 3. **Line up a lawyer, a CPA and an SBA lender now**, especially because the SBA rules change on Oct 1, 2026.
 4. **Buy one firm priced on today's earnings**, with a GM who stays and has upside, and run it in shadow
-   mode for 30 days before any client sees agent work.
+   mode until the first job type graduates on evidence (20+ shadow jobs) before any client sees agent work.
 5. **Protect the Wednesday hour.** The rules list is the asset.
 
 The step-by-step version, with exit criteria and proof for each step, is `docs/PLAYBOOK.md`. Your

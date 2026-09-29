@@ -1,0 +1,56 @@
+{
+  "job_type": "monthly-close",
+  "client": "acme",
+  "client_message": {
+    "subject": "Your June 2026 books are ready for review",
+    "body_markdown": "Hi Maria,\n\nYour June 2026 books are closed. Here's the short version.\n\n## Summary\n- Money in: $14,935.00\n- Money out: $8,349.39\n- Net: $6,585.61\n- Bank balance ties to your statement: yes\n\n## Questions\n1. We left out T-0611, a Home Depot charge of $212.40 on June 24, because it looks like a duplicate of T-0610 in the bank export. Please confirm there was only one $212.40 purchase that day.\n\nThe full categorized list is attached.\n\n— Dana"
+  },
+  "data": {
+    "period": "2026-06",
+    "transactions": [
+      {"id": "T-0601", "date": "2026-06-02", "description": "STRIPE TRANSFER", "amount": 4820.00, "category": "Sales Income"},
+      {"id": "T-0602", "date": "2026-06-03", "description": "HOME DEPOT #4410", "amount": -843.10, "category": "Repairs & Maintenance"},
+      {"id": "T-0603", "date": "2026-06-05", "description": "SHELL OIL 57442", "amount": -96.40, "category": "Fuel"},
+      {"id": "T-0604", "date": "2026-06-08", "description": "INTUIT *QUICKBOOKS", "amount": -90.00, "category": "Software"},
+      {"id": "T-0605", "date": "2026-06-10", "description": "STRIPE TRANSFER", "amount": 6210.00, "category": "Sales Income"},
+      {"id": "T-0606", "date": "2026-06-12", "description": "STATE FARM INSURANCE", "amount": -412.00, "category": "Insurance"},
+      {"id": "T-0607", "date": "2026-06-15", "description": "ADP PAYROLL", "amount": -5230.00, "category": "Payroll"},
+      {"id": "T-0608", "date": "2026-06-18", "description": "GREENLEAF NURSERY", "amount": -1275.50, "category": "Materials (COGS)"},
+      {"id": "T-0609", "date": "2026-06-22", "description": "COMCAST BUSINESS", "amount": -189.99, "category": "Utilities"},
+      {"id": "T-0610", "date": "2026-06-24", "description": "HOME DEPOT #4410", "amount": -212.40, "category": "Repairs & Maintenance"},
+      {"id": "T-0612", "date": "2026-06-29", "description": "STRIPE TRANSFER", "amount": 3905.00, "category": "Sales Income"}
+    ],
+    "excluded": [
+      {"id": "T-0611", "reason": "Duplicate of T-0610 in the bank export (same date 2026-06-24, description HOME DEPOT #4410 and amount -212.40). Only one receipt is on file for that purchase, and the statement balance only ties without it."}
+    ],
+    "summary": {
+      "income": 14935.00,
+      "expenses_by_category": {
+        "Repairs & Maintenance": 1055.50,
+        "Fuel": 96.40,
+        "Software": 90.00,
+        "Insurance": 412.00,
+        "Payroll": 5230.00,
+        "Materials (COGS)": 1275.50,
+        "Utilities": 189.99
+      },
+      "net": 6585.61
+    },
+    "reconciliation": {
+      "opening_balance": 12450.00,
+      "closing_balance": 19035.61,
+      "computed_closing": 19035.61,
+      "difference": 0.00,
+      "status": "tied"
+    }
+  },
+  "questions_for_client": [
+    "We left out T-0611, a Home Depot charge of $212.40 on June 24, because it looks like a duplicate of T-0610 in the bank export. Please confirm there was only one $212.40 purchase that day."
+  ],
+  "rules_applied": ["BK-001", "BK-002", "BK-003", "BK-004", "BK-005", "BK-006", "BK-008", "BK-009", "R-DEMO-002", "R-DEMO-003"],
+  "assumptions": [
+    "T-0611 is treated as a duplicate of T-0610 until the client confirms. With it included, the computed closing is 18823.21, which is 212.40 short of the statement closing of 19035.61.",
+    "T-0607 ADP PAYROLL (-5230.00) is over the BK-006 $5,000 threshold but matches the BK-008 default (ADP -> Payroll), so it was categorized, not escalated.",
+    "There is no Acme-specific rule for HOME DEPOT, so T-0602 and T-0610 use the BK-008 default, Repairs & Maintenance."
+  ]
+}

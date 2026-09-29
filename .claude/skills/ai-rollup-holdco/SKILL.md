@@ -15,15 +15,25 @@ Everything below points at files in the TMAHoldings repo. In a packaged copy of 
 the same files are bundled under `references/` with the same paths (for example
 `references/docs/PLAYBOOK.md`).
 
+**Without the repo** (for example the skill uploaded to the Claude app): there is no `holdco`
+CLI, no workflows and no approval queue. Use the playbook, runbooks, agent job files, rules and
+thesis as guides; do deal math by hand, showing the arithmetic (today's earnings = SDE minus the
+cost of replacing the owner; the most to pay is the lowest of the buy-box caps and the price whose
+debt service today's earnings cover 1.25x); and say plainly which steps need the repo: anything
+that records, checks, approves or sends client work.
+
 ## Non-negotiables
 
 1. **A named person approves everything before it reaches a client.** Agents draft, check and
-   ask; they never approve or send. In the repo this is enforced by code (the CLI refuses
-   inside agent sessions; a guard hook blocks attempts; a content hash is checked at send).
-   Never try to get around it. When a person needs to act, give them the exact command.
+   ask; they never approve or send. In the repo this is enforced in code: the library refuses
+   inside agent sessions, approvals and releases are signed with the approver's passphrase, a
+   guard hook blocks attempts, and `holdco outbox verify` checks what was released. Never try
+   to get around it. When a person needs to act, give them the exact command.
 2. **Price on what the business makes today.** The AI upside is yours to create, not the
    seller's to charge for. Coverage must work on today's earnings.
-3. **The first 30 days change nothing a client can see.** New job types start in shadow mode.
+3. **Nothing a client can see changes until a job type has earned it.** At a business you buy,
+   new job types start in shadow mode and graduate on evidence (20+ shadow jobs by default, so
+   start with a high-volume one). The wedge service is the one exception (runbook 10).
 4. **Every human fix is logged; repeats become rules; every accepted rule becomes a test.**
 5. **Buy slowly.** The next deal waits until every business has had 8 stable Mondays.
 6. **Evidence before claims.** Fund results (Thrive Holdings, General Catalyst) are
@@ -38,10 +48,10 @@ check `thesis/THESIS.md`. Ask only for what those don't answer.
 | Phase | You're here if | Do | Use | Leave when |
 |---|---|---|---|---|
 | 0 Foundation | no industry or thesis chosen | pick the industry, fill in the thesis and buy box, line up a lawyer, CPA and SBA lender | `thesis/THESIS.md`, `niche-validator` skill | thesis + buy box signed off |
-| 1 Wedge service | no paying firms yet | sell one annoying job, done with agents, to firms in the industry | runbook 10; `offer-architect`, `icp-canvas`, `lead-source-planner`, `demand-first-os` | 3 paying firms, drafts needing fixes under 20%, 2+ owners talking succession |
+| 1 Wedge service | no paying firms yet | sell one annoying job, done with agents, to firms in the industry | runbook 10; `offer-architect`, `icp-canvas`, `lead-source-planner`, `demand-first-os` | gates W1–W4: 3 paying firms, drafts needing fixes under 20% for 8 weeks, 2+ owners talking succession, a lender-confirmed financing plan |
 | 2 Deal flow | owners are open to selling | source and screen; price on today's earnings | runbook 08, `holdco deal score`, the deal-screen workflow, `clear-thinking-os` | LOI signed |
 | 3 Close | LOI signed | diligence, financing, GM agreement, security | runbooks 08, 09, 11 | closed |
-| 4 First 30 days | just closed | day one, then shadow mode | runbooks 01, 02 | graduation report ready and the GM agrees |
+| 4 Shadow mode | just closed | day one, then shadow mode | runbooks 01, 02 | graduation report ready and the GM agrees |
 | 5 Operate | a job type is in assisted mode | the weekly rhythm | runbooks 03, 04, 05, 06 | 8 stable Mondays |
 | 6 Next business | stable everywhere | repeat, reusing the shared layer | runbook 07 | — |
 
@@ -51,12 +61,14 @@ The full step-by-step guide, with exit criteria and how each step was proven, is
 ## Task recipes
 
 **Process client work** (the agent pipeline)
-1. `python3 -m holdco job list --json` and pick jobs in state `received`, `ready` or `blocked`.
+1. `python3 -m holdco job list <business> --json --root <absolute workspace path>`.
 2. Run the `holdco-process-job` workflow (`.claude/workflows/holdco-process-job.js`) with
-   `{root: <absolute workspace path>, jobs: [{business, job, state, drafts}]}`. It spends roughly
-   4 agents per clean job and 3 more per blocked round.
-3. Report `python3 -m holdco queue`, and for each job give the person the exact next command
-   (`job show`, then `approve ... --by "<name>" --minutes <n>`, then `send`).
+   `{root: <absolute workspace path>, jobs: <that output, as is>}`. It works on jobs that are
+   received, ready, drafted (waiting for review, for example after a person answered the
+   reviewer) or blocked, and spends roughly 4 agents per clean job and 3 more per blocked round.
+3. Report `python3 -m holdco queue`, and for each job give the person the exact next commands:
+   `job show`, then `approve ... --by "<name>" --minutes <n> --send` (it asks for their
+   passphrase), then `outbox verify <business> --by "<name>"` before they email anything.
    No workflow runtime? Use the Agent tool with `holdco-intake`, `holdco-preparer` and
    `holdco-reviewer` in that order, and record each step with `python3 -m holdco record-run`.
 
@@ -88,8 +100,10 @@ weight. After any change, run the golden cases.
 ## Human-only commands
 
 `approve`, `send`, `send-back`, `answer`, `cancel`, `shadow`, `rollout`, `rules accept`,
-`rules reject`. Never run them, and never forge a human context in Python. They refuse inside
-an agent session anyway. Hand the person the exact command with their name, and stop.
+`rules reject`, `keys add`, `outbox verify`. Never run them, and never try to get around the
+guard (patching it, clearing `CLAUDECODE`, faking a terminal). Hand the person the exact command
+with their name, and stop. Each person listed in `approvers` or `owners` sets a passphrase once
+per business with `keys add`.
 
 ## Evidence standards
 

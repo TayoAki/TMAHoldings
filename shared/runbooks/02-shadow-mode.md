@@ -1,8 +1,13 @@
-# 02 · First 30 days: shadow mode
+# 02 · Shadow mode: until the first job type graduates
 
 **Goal:** agents do real work in the background while people keep doing it the old way.
-Every difference is logged. Nothing a client sees changes. By day 30 you know, with
-numbers, whether the agents are ready for one job type.
+Every difference is logged. Nothing a client sees changes until the numbers say a job type is
+ready (runbook 03).
+**How long:** graduation needs 20 or more shadow jobs of that job type by default, so the length
+depends on volume. Start with a high-volume job type (the monthly close across all clients, or
+document chasing) and it takes weeks; the monthly close for 5 clients would take about four
+months. With the GM, you can lower `min_jobs` in `business.json` → `"graduation"` for a
+low-volume job type, but keep it at 10 or more.
 **Who:** the GM runs it daily; you run the Wednesday review.
 
 ## How a shadow job flows
@@ -12,21 +17,22 @@ numbers, whether the agents are ready for one job type.
    workflow). They draft, review, and park the draft; they cannot approve or send it
    (`holdco approve` refuses any job type in shadow mode).
 3. Staff do the job exactly as before and send it the old way.
-4. The GM records what they actually did, **(you)**:
+4. The GM (or you) records what the staff actually did, **(you)**:
    `python3 -m holdco shadow <biz> <job> --by "<GM>" --minutes 42 --human-csv booked.csv`
    (or `--final their-version.json`, or `--set PATH=VALUE`). Each difference gets a category:
    factual error, client preference, missing information, or style.
-5. The minutes become the **manual baseline** in the Monday numbers.
+5. The minutes become the **manual baseline** in the Monday numbers, and the person's version
+   is what any rule learned from this job is tested against.
 
-## Week by week
-- **Week 1:** 5–10 jobs. Expect lots of differences; most will be client preferences that
+## Job by job
+- **The first 5–10 jobs:** expect lots of differences; most will be client preferences that
   were never written down. That is the point: each one is a rule waiting to be written.
-- **Weeks 2–3:** Wednesday reviews turn repeated differences into rules (runbook 05).
+- **The next 10:** Wednesday reviews turn repeated differences into rules (runbook 05).
   Differences should fall week over week. If factual errors don't fall, fix the agent files.
-- **Week 4:** run the graduation report and decide with the GM (runbook 03):
+- **Around job 20:** run the graduation report and decide with the GM (runbook 03):
   `python3 -m holdco graduation <biz> <job-type>`
 
-## Rules for the 30 days
+## Rules while in shadow mode
 - No agent draft reaches a client. No price, staffing, or client-software changes.
 - Log every difference, even small ones. An unlogged fix is a rule you'll pay for again.
 - Staff are the reviewers, not the reviewed. Say so, and mean it.
@@ -34,5 +40,5 @@ numbers, whether the agents are ready for one job type.
   that matters most here, more than any agent mistake.
 
 ## Done when
-20 or more shadow jobs for the job type, rules captured for the repeated differences, and a
-graduation decision made with the GM (graduate, or another 2 weeks of shadow).
+20 or more shadow jobs for the job type (or the `min_jobs` you set), rules captured for the
+repeated differences, and a graduation decision made with the GM (graduate, or keep shadowing).

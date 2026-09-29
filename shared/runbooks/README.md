@@ -6,7 +6,7 @@ second time and there is no runbook, write one.
 | # | Runbook | Use it when |
 |---|---|---|
 | 01 | [Day one after taking over](01-day-one-takeover.md) | The day after closing |
-| 02 | [First 30 days: shadow mode](02-first-30-days-shadow-mode.md) | Days 1–30 at every new business |
+| 02 | [Shadow mode](02-shadow-mode.md) | From day one at every new business, until a job type graduates |
 | 03 | [Graduating a job type](03-graduating-a-job-type.md) | Moving a job type from shadow to assisted, or back |
 | 04 | [The weekly rhythm](04-weekly-operating-rhythm.md) | Every week, forever |
 | 05 | [Wednesday corrections review](05-wednesday-corrections-review.md) | Every Wednesday, every business |
@@ -19,4 +19,6 @@ second time and there is no runbook, write one.
 
 Commands in these runbooks are for the `holdco` CLI (`python3 -m holdco --help`). Commands
 marked **(you)** are human-only: they refuse to run inside an agent session, so a person
-types them in their own terminal.
+types them in their own terminal, as someone listed in the business's `approvers` or `owners`.
+`approve`, `send` and `outbox verify` also ask for that person's passphrase, set once per
+business with `python3 -m holdco keys add <biz> --by "<name>"`.

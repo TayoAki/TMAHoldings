@@ -14,8 +14,10 @@ update `buy-box.json` (which `python3 -m holdco deal score` reads) to match.
 2. Much of the work inside them is typing, chasing and first drafts, which agents can now do
    well enough that a person only checks the result. One reported pilot cut tax-prep time by 31%.
 3. These firms are priced as if their margins can't change. If agents take over a real share of
-   the hours, and we capture the freed time, margins can move from roughly 5–10% toward 15–25%,
-   and toward 30–40% only if about half the hours move (see `docs/VIDEO-REVIEW.md`, "The math").
+   the hours and we capture the freed time, margins move: at a 31% time saving, a 10%-margin firm
+   lands at about 9–25% depending on how much freed time we capture (15–25% only if we capture half
+   or more), and 30–40% needs about half the hours to move, mostly captured (see
+   `docs/VIDEO-REVIEW.md`, "The math", for the assumptions). We plan on the low end.
 4. A solo owner can win the small deals the funds skip: many owners would rather hand their
    life's work to a person, and we can be the integration ourselves.
 5. The durable edge is not the model (anyone can use it). It is the relationships we keep and
@@ -52,11 +54,20 @@ bookkeeping firm is stable. Confirm with the `niche-validator` skill (Gate 0) in
 
 ## What we don't buy (anti-thesis)
 
-- Businesses priced on the AI upside, or on "adjusted" earnings that don't survive a quality check.
-- Audit/attest practices, unless a CPA partner owns that side.
-- One client over 30% of revenue; no GM candidate; an owner who leaves at closing.
-- Turnarounds. We buy healthy firms and make them better.
-- Faster than one new business per 8 stable Mondays across the portfolio.
+We walk away when any of these is true. They are the `hard_fail` rules in `buy-box.json`, so
+`deal score` says WALK AWAY, and runbook 08 lists the same ones:
+- an industry outside the thesis;
+- licensing that would make us a passive owner of regulated work (audit/attest practices, unless
+  a CPA partner owns that side);
+- debt-service coverage under 1.0x on today's earnings;
+- one client over 30% of revenue;
+- no GM candidate;
+- an owner who leaves at closing;
+- a seller who wants to be paid for the AI upside.
+
+Also not for us, though no screen can catch them: "adjusted" earnings that don't survive a
+quality check; turnarounds (we buy healthy firms and make them better); and buying faster than
+one new business per 8 stable Mondays across the portfolio.
 
 ## The buy box (numbers in `buy-box.json`)
 
@@ -65,6 +76,8 @@ bookkeeping firm is stable. Confirm with the `niche-validator` skill (Gate 0) in
 | Industries | bookkeeping, tax-prep | the recommendation above |
 | Revenue | $500k–$3M | big enough for a GM and a back office; small enough the funds skip it |
 | SDE | at least $150k | covers debt service after paying someone to do the owner's job |
+| Years in business | at least 10 | a client base that has already survived a downturn |
+| Clients | at least 100 | no single relationship carries the firm |
 | Price / SDE | at most 3.0x | bookkeeping sells for about 2.5–3.3x SDE, accounting and tax about 2.3x |
 | Price / revenue | 1.1x bookkeeping, 1.2x tax | small-practice norms of 1.0–1.3x |
 | Debt coverage on today's earnings | at least 1.25x | the SBA minimum; we test it on today's numbers, not the plan |
@@ -73,6 +86,8 @@ bookkeeping firm is stable. Confirm with the `niche-validator` skill (Gate 0) in
 | GM candidate | required | the person clients are loyal to has to stay |
 | Owner transition | at least 6 months | relationships transfer slowly |
 | Agent-ready work | at least 30% of hours | below that, the thesis doesn't pay for the integration |
+| Billing | fixed fee or subscription (mixed is a warning) | with hourly billing, faster work means less revenue |
+| Walk-away rules | the list above, under `hard_fail` | everything else is a reason to negotiate, not to walk |
 
 ## The GM deal
 

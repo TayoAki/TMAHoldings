@@ -1,0 +1,73 @@
+{
+  "id": "2026-06-acme-monthly-close",
+  "business": "demo-bookkeeping",
+  "type": "monthly-close",
+  "client": "acme",
+  "period": "2026-06",
+  "state": "awaiting_approval",
+  "resume_state": null,
+  "created_at": "2026-09-29T01:34:03+00:00",
+  "parent": null,
+  "children": [],
+  "eval_case": null,
+  "drafts": [
+    {
+      "version": 1,
+      "file": "drafts/v1.json",
+      "sha256": "dd5ca9f3db402962b85e10d05ea6584159d6fb77340c7ddda7ec737d4e5876bc",
+      "author": "preparer",
+      "at": "2026-09-29T01:44:01+00:00"
+    }
+  ],
+  "reviews": [
+    {
+      "version": 1,
+      "verdict": "PASS",
+      "score": 100,
+      "findings": [],
+      "summary": "Ready for Dana. All 12 bank lines are accounted for, and duplicate T-0611 is left out with a reason and a question to the client. My own totals match the draft: $14,935.00 in, $8,349.39 out, $6,585.61 net, and the books tie to the $19,035.61 statement balance to the cent. Categories (including Acme's Greenleaf rule R-DEMO-003), receipts and the message to Maria all check out. R-DEMO-001 (Acme's close goes out on the 3rd) is about send timing, which is the approver's job.",
+      "reviewer": "reviewer-agent",
+      "at": "2026-09-29T01:44:01+00:00"
+    }
+  ],
+  "questions": [],
+  "answers": {},
+  "approval": null,
+  "sent": null,
+  "history": [
+    {
+      "at": "2026-09-29T01:34:03+00:00",
+      "from": null,
+      "to": "received",
+      "actor": "system:holdco",
+      "note": "created with inputs: bank.csv, receipts.csv, statement.json"
+    },
+    {
+      "at": "2026-09-29T01:34:03+00:00",
+      "from": "received",
+      "to": "received",
+      "actor": "system:holdco",
+      "note": "inputs added: receipts.csv"
+    },
+    {
+      "at": "2026-09-29T01:44:01+00:00",
+      "from": "received",
+      "to": "ready",
+      "actor": "intake:intake-agent"
+    },
+    {
+      "at": "2026-09-29T01:44:01+00:00",
+      "from": "ready",
+      "to": "drafted",
+      "actor": "preparer:preparer-agent",
+      "note": "draft v1"
+    },
+    {
+      "at": "2026-09-29T01:44:01+00:00",
+      "from": "drafted",
+      "to": "awaiting_approval",
+      "actor": "reviewer:reviewer-agent",
+      "note": "v1 passed review (score 100)"
+    }
+  ]
+}

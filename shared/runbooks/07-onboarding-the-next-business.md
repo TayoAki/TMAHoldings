@@ -6,7 +6,8 @@ of what it needs already exists. The third is easier again.
 ## Before you sign the LOI
 - [ ] Every current business has had 8 stable Mondays: margin steady or rising *with* retention
       steady, key people OK, no open incidents. Buy slowly.
-- [ ] You have the time: the first 30 days of a new business take roughly one day a week of yours.
+- [ ] You have the time: shadow mode at a new business takes roughly one day a week of yours
+      until its first job type graduates.
 - [ ] Financing plan checked against the SBA's $3.75M guaranty cap per borrower *including
       affiliates*: every business the holdco controls shares that cap (runbook 08).
 
@@ -24,7 +25,9 @@ of what it needs already exists. The third is easier again.
 2. Licensing and data rules change by industry: insurance agencies need a designated licensed
    producer, carrier consents, and AI kept away from selling and advice; property managers need a
    designated broker and trust-account discipline (runbook 09 has the data side).
-3. Plan for a longer shadow period: 45–60 days.
+3. Plan for a longer shadow period: the agents have no industry rules yet, so expect more
+   differences and consider a higher bar in `business.json` → `"graduation"` (for example 30
+   shadow jobs) rather than fewer.
 4. Run the golden cases for *all* businesses after changing any global rule.
 
 ## What stays the same everywhere

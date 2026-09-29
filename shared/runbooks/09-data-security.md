@@ -30,6 +30,26 @@ never do.
 - [ ] Real client data never goes in git (`.gitignore` keeps `businesses/*` out, except the
       template and fictional demos).
 
+## Keeping agents away from approvals (the holdco itself)
+The approval rule is enforced in layers (README, "How it works"): the library refuses human-only
+actions in an agent session, approvals and releases are signed with each approver's passphrase,
+a Claude Code hook blocks writes to state, and `holdco outbox verify` checks what was released.
+All of that runs under your OS account, so a program determined to cheat could still rewrite
+files there. For real client work, add a boundary it can't cross:
+- [ ] Run Claude Code (and any other agent runner) as a **separate OS user** or in a container
+      that can read the workspace but cannot write `businesses/*/jobs/*` outside `work/`,
+      `outbox/`, `golden/`, `proposals/`, the logs or `business.json`, and cannot read `~/.holdco`.
+- [ ] The key store (`~/.holdco/keys`, or `HOLDCO_KEYS_DIR`) belongs to the people who approve,
+      with folder mode 700 and file mode 600 (the CLI sets these). Never copy it into the repo,
+      a shared drive, or an agent's reach.
+- [ ] Each approver's passphrase is long (12+ characters; a sentence works), never written into
+      a file, and never typed into a chat. It can't be recovered: a lost one means a new key.
+- [ ] Before emailing anything from an outbox: `holdco outbox verify`. A failure is an incident
+      (runbook 06).
+- [ ] Changes to the guard itself (`.claude/hooks/`, `.claude/settings*.json`, `holdco/guard.py`,
+      `holdco/keys.py`) only in a session a person started with `HOLDCO_DEV=1`, and reviewed like
+      any security change.
+
 ## Tax and accounting firms
 - The **FTC Safeguards Rule** treats tax preparers as financial institutions: written program,
   risk assessment, MFA, encryption, vendor oversight, monitoring or annual penetration tests,

@@ -9,7 +9,13 @@ system. Both are handled the same way. Blameless, fast, and fixed at the root.
    `python3 -m holdco rollout <biz> <job-type> shadow --by "<you>" --reason "incident <date>"`
    Nothing of that type can be approved or sent until you switch it back.
 2. Find exactly what went out: `businesses/<biz>/outbox/<job>/manifest.json` shows who approved
-   it, when, and the content hash; `jobs/<job>/job.json` has the full history.
+   and released it, when, the content hash and the file hashes; `jobs/<job>/job.json` has the full
+   history. Then check the whole outbox, **(you)**:
+   `python3 -m holdco outbox verify <biz> --by "<you>"` (each person verifies what they released).
+   An item that fails was edited after release, or never released through `holdco send`: treat it
+   as tampering and tell counsel. If your passphrase suddenly fails and you're sure it's right,
+   assume the key file was replaced: stop all sends and rotate keys from a clean machine
+   (`holdco keys add ... --rotate`, or remove the file and add a new key).
 3. Decide how serious it is:
    - **Wrong fact or number:** correct it with the client today.
    - **Advice, or a promise the firm can't keep:** involve the licensed professional before anything else goes out.
@@ -34,5 +40,6 @@ system. Both are handled the same way. Blameless, fast, and fixed at the root.
    cause, what changed. No names in the "cause" section; systems, not people.
 
 ## Resume
-9. `python3 -m holdco eval <biz>` passes, then two weeks in shadow and a clean graduation
-   report (runbook 03) before switching back to assisted.
+9. `python3 -m holdco eval <biz>` passes (with at least the new golden case in it), then shadow
+   mode until a clean graduation report on jobs done after the rollback (runbook 03) before
+   switching back to assisted.

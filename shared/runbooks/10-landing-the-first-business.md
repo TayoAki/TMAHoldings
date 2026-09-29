@@ -19,9 +19,18 @@ work one of the owners will be ready to step back. You'll be the obvious person 
 - `offer-architect` skill: fixed scope, fixed price, fast turnaround, a real guarantee. Example
   shape: "We close your five messiest clients each month, reconciled to the bank, reviewed by
   a person, back to you by the 5th. Flat fee per client file."
-- Your delivery **is this repo**: set up each client firm as a business folder in assisted
-  mode, where *their* staff (or you) approve every deliverable. Every job trains the agents and
-  adds to the corrections log.
+- Your delivery **is this repo**: set up each client firm as a business folder
+  (`holdco new-business <slug> ... --gm "<their lead>" --owner "<you>"`), where *their* staff
+  (or you) approve every deliverable with their own passphrase (`holdco keys add`). Every job
+  trains the agents and adds to the corrections log.
+- **Assisted from the start, and why that's safe here.** At a business you buy, new job types
+  start in shadow mode because staff already do the work and the agents must prove they match
+  it. The wedge is different: it's a new service with no existing version to shadow, and the
+  product *is* a person checking every line before it goes back to the firm. So switch the wedge
+  job type to assisted on day one, **(you)**:
+  `python3 -m holdco rollout <slug> monthly-close assisted --by "<you>" --reason "wedge service: every deliverable reviewed line by line"`
+  Gate W2 below plays the part of graduation: until drafts needing fixes stay under 20%, keep the
+  volume small and review everything slowly.
 
 ## Step 3: find the first firms (weeks 2–8)
 - `icp-canvas` → owners of $500k–$3M firms in your region, especially owners 55+.
@@ -39,7 +48,7 @@ work one of the owners will be ready to step back. You'll be the obvious person 
 | Gate | Pass when | If not |
 |---|---|---|
 | W1 · Paying firms | 3 firms paying for the wedge within 90 days | change the offer or the industry (demand-first Gate 2) |
-| W2 · Agents earn trust | drafts needing fixes under 20% on the wedge job for 8 weeks | keep tuning rules before selling more |
+| W2 · Agents earn trust | drafts needing fixes (a person edited or sent it back) under 20% on the wedge job for 8 weeks, per `holdco metrics` | keep tuning rules before selling more |
 | W3 · Succession signal | 2+ owners have discussed succession with you | keep serving; widen the list |
 | W4 · Deal ready | financing plan confirmed with a lender; buy box final; one target screened | runbook 08 |
 

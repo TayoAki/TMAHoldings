@@ -1,0 +1,41 @@
+{
+  "intake": {
+    "status": "complete",
+    "documents_found": [
+      "bank.csv",
+      "statement.json",
+      "receipts.csv"
+    ],
+    "missing": [],
+    "rules_applied": [
+      "BK-001",
+      "BK-002"
+    ]
+  },
+  "rounds": [
+    {
+      "version": 1,
+      "escalation": {
+        "question": "T-0706 on 2026-07-14: \"ONLINE TRANSFER TO J SMITH\" for -$6,200.00 matches no category rule and is $5,000 or more (BK-006). What is it, and what category should it go in?",
+        "key": "T-0706",
+        "context": {
+          "description": "ONLINE TRANSFER TO J SMITH",
+          "amount": -6200,
+          "date": "2026-07-14",
+          "rule": "BK-006",
+          "threshold": 5000,
+          "why_stopped": "No client, business or industry category rule matches this description, and job.json answers has no entry for T-0706. Nothing in the rules or client notes identifies J SMITH.",
+          "receipt_note": "No receipt on file. BK-002 exempts transfers between accounts and to owners; if this was a payment to a contractor or vendor, an invoice will be needed.",
+          "reconciliation": {
+            "opening_balance": 19035.61,
+            "closing_balance": 19857.72,
+            "computed_closing_with_all_11_lines": 19857.72,
+            "difference": 0,
+            "status": "tied"
+          },
+          "rest_of_month": "The other 10 lines all match a rule (BK-008 vendor defaults; R-DEMO-003 for T-0708 GREENLEAF NURSERY). No duplicate lines. T-0706 is a real bank line: the statement only ties with it included. Once T-0706 has a category the draft can be written."
+        }
+      }
+    }
+  ]
+}

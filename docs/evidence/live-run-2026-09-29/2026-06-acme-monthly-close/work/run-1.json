@@ -1,0 +1,27 @@
+{
+  "intake": {
+    "status": "complete",
+    "documents_found": [
+      "bank.csv",
+      "receipts.csv",
+      "statement.json"
+    ],
+    "missing": [],
+    "rules_applied": [
+      "BK-001",
+      "BK-002"
+    ]
+  },
+  "rounds": [
+    {
+      "version": 1,
+      "draft_file": "work/draft.v1.json",
+      "review": {
+        "verdict": "PASS",
+        "score": 100,
+        "findings": [],
+        "summary": "Ready for Dana. All 12 bank lines are accounted for, and duplicate T-0611 is left out with a reason and a question to the client. My own totals match the draft: $14,935.00 in, $8,349.39 out, $6,585.61 net, and the books tie to the $19,035.61 statement balance to the cent. Categories (including Acme's Greenleaf rule R-DEMO-003), receipts and the message to Maria all check out. R-DEMO-001 (Acme's close goes out on the 3rd) is about send timing, which is the approver's job."
+      }
+    }
+  ]
+}

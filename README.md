@@ -21,7 +21,7 @@ runnable.
 Requires Python 3.9+ and nothing else. Node is optional; it only runs the workflow tests.
 
 ```bash
-python3 -m holdco demo                     # three months at a fictional bookkeeping firm: 20 proofs
+python3 -m holdco demo                     # three months at a fictional bookkeeping firm: 22 proofs
 python3 -m unittest discover -s tests -t .  # the full test suite
 python3 -m holdco deal score thesis/deals/example-target.json
 python3 -m holdco model margin              # what "5–10% to 30–40% margins" actually requires
@@ -40,17 +40,31 @@ work arrives ─► INTAKE ──► PREPARER ──► REVIEWER ──► a nam
 ```
 
 The rule that prevents most disasters, that **the reviewer can block but never send, and a person
-approves everything**, is enforced three ways, not by asking agents nicely:
+approves everything**, is enforced in code, in layers, not by asking agents nicely:
 
-1. The `holdco` CLI refuses approve, send, answer, shadow, rollout and rules accept inside an agent
-   session (Claude Code sets `CLAUDECODE=1`) or without an interactive terminal.
-2. A Claude Code hook (`.claude/hooks/human_only_guard.py`) blocks those commands, and any write to
-   outboxes, approvals, job state, logs or golden cases, before the tool call runs.
-3. `send` checks the content hash of exactly what the person approved.
+1. **The library refuses.** Human-only actions (approve, send, send-back, answer, cancel, shadow,
+   rollout, rules accept/reject, keys add, outbox verify) check the real process: they refuse when an
+   agent marker is set (Claude Code sets `CLAUDECODE=1`) or there is no interactive terminal, whatever
+   the caller claims.
+2. **Approvals are signed.** Approving and sending need the approver's passphrase. Each approval and
+   each release is signed with a key derived from it, so `send` refuses an approval nobody signed, and
+   `holdco outbox verify` flags anything in the outbox that was edited, added or never released. Run
+   it before you email anything.
+3. **A Claude Code hook** (`.claude/hooks/human_only_guard.py`) blocks human-only commands, attempts to
+   switch off the agent markers, and writes to job state, inputs, outboxes, logs, golden cases and the
+   key store before a tool call runs. The holdco agents get allow-lists: drafts in a job's `work/`
+   folder and agent-safe commands, nothing else.
+4. **Evidence is hashed.** Inputs, drafts and approved output are hashed when recorded, and anything
+   changed outside the CLI is refused.
 
-Code checks sit behind the plain-English rules, so a failing blocker check (books that don't tie,
-an unmasked account number, a big transaction nobody asked about) blocks a draft even if the reviewer
-agent passed it.
+Code checks also sit behind the plain-English rules, so a failing blocker check (books that don't tie,
+totals in the email that don't match the books, an unmasked account number, a big transaction nobody
+asked about) blocks a draft even if the reviewer agent passed it.
+
+What this does not stop: a program running under your own OS account that is determined to cheat can
+rewrite code and files. It still can't sign as you without your passphrase, and `outbox verify`
+catches what it leaves behind. For real client data, run agents as a separate OS user with no access
+to `businesses/` state or `~/.holdco` (runbook 09).
 
 ## The folder structure is the org chart
 
@@ -78,11 +92,16 @@ The `ai-rollup-holdco` skill loads automatically in this repo. Things to say:
 Claude never approves or sends. You do, in your own terminal:
 
 ```bash
+python3 -m holdco keys add <business> --by "Your Name"       # once per business: your approval passphrase
 python3 -m holdco queue
 python3 -m holdco job show <business> <job>
-python3 -m holdco approve <business> <job> --by "Your Name" --minutes 6
-python3 -m holdco send <business> <job> --by "Your Name"
+python3 -m holdco approve <business> <job> --by "Your Name" --minutes 6 --send
+python3 -m holdco outbox verify <business> --by "Your Name"  # before you email anything
 ```
+
+(`approve` without `--send` leaves it approved; `send` releases it later.) To have Claude work on the
+holdco itself (the guard, the engine's tests), start Claude Code with `HOLDCO_DEV=1`; in a normal
+session the hook refuses changes to the guard.
 
 To use the skill in the Claude app as well: `python3 scripts/package_skill.py`, then upload
 `dist/ai-rollup-holdco.skill`.
@@ -101,8 +120,10 @@ tests/             unit, CLI, demo, hook and workflow tests
 
 ## Limits, plainly
 
-- The demo's agents are deterministic stand-ins that prove the mechanics. Real work runs through the
-  Claude agents and workflows in `.claude/`.
+- The demo runs deterministic stand-ins for the agents, so it tests the pipeline, the checks and the
+  rules, not the quality of Claude's drafts. The Claude workflows were run end to end on the demo firm
+  (`docs/evidence/`): that shows they work, not that they are accurate on your clients' books.
+  Shadow mode measures that, job by job, before anything goes live.
 - Nothing here proves the market: that firms will buy the wedge service, that an owner will sell at a
   price today's earnings can carry, or that your clients and staff stay. The playbook gives each of
   those a gate.
