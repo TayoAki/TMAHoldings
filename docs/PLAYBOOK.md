@@ -238,9 +238,36 @@ read the same rule files as the Claude agents. Every step asserts an invariant; 
 | `test_cli_and_demo.py` | The CLI refuses human-only commands inside an agent or without a terminal; agent-safe commands work; the demo's 20 proofs hold |
 | `test_workflows.py` | The four Claude Code workflow scripts, run in Node with scripted agents against a real workspace: block then pass, machine veto fed back into the next draft, chases, escalations, parallel jobs, the weekly review, the eval, and the deal memo |
 
-### 3. The Claude Code workflow with real agents
-See "Live run" below: the `holdco-process-job` workflow was run once with real Claude agents on two
-jobs in a sandbox copy of the demo firm.
+### 3. The Claude Code workflow with real agents (live run, Sep 29, 2026)
+The `holdco-process-job` workflow ran with real Claude agents (the tool-restricted `holdco-intake`,
+`holdco-preparer`, `holdco-reviewer` and `holdco-clerk`) on two jobs in a sandbox copy of the demo
+firm: 7 agent calls, no errors.
+
+| Job | What the agents did | Result |
+|---|---|---|
+| June close (receipts added late; the bank export has a duplicated line) | Intake found every document. The preparer categorized all 12 lines, applied the client rule for Greenleaf and the industry defaults, and found the duplicate on its own: same date, vendor and amount, only one receipt, and the books tie only without it. It excluded the line with that reason and asked the client to confirm. It also noted that the $5,230 ADP payroll is over the $5,000 threshold but matched a rule, so no question was needed. The reviewer recomputed everything and passed it (100). Machine checks: all passed. | Waiting in the approval queue. Nothing sent. |
+| July close (a $6,200 transfer to an unknown party) | Intake found every document. The preparer stopped instead of guessing: *"T-0706 on 2026-07-14: 'ONLINE TRANSFER TO J SMITH' for -$6,200.00 matches no category rule and is $5,000 or more (BK-006). What is it, and what category should it go in?"* | Waiting for a person's answer. |
+
+**What the first attempt caught.** An earlier run of the same two jobs reached the same results,
+but the preparer flagged that the job-type spec's example showed the exact category the demo
+expects agents to *learn* from corrections. It refused to use it ("an example, not a rule"), but
+examples like that can quietly steer agents, so every example now uses made-up clients and
+values, and the run above was done after that fix. That first attempt also started before the
+tool-restricted agent types were registered, and the workflow fell back to default agents as designed.
+
+**Re-run it yourself** (the sandbox is local and gitignored):
+```bash
+python3 -m holdco sandbox "$PWD/.sandbox"
+python3 -m holdco --root "$PWD/.sandbox" job new demo-bookkeeping --type monthly-close --client acme \
+  --inputs "$PWD/.sandbox/businesses/demo-bookkeeping/inbox/2026-06-acme" --period 2026-06
+python3 -m holdco --root "$PWD/.sandbox" job add-inputs demo-bookkeeping 2026-06-acme-monthly-close \
+  --inputs "$PWD/.sandbox/businesses/demo-bookkeeping/inbox/2026-06-acme-late-receipts"
+# then, in Claude Code: "process the received jobs in .sandbox with the holdco-process-job workflow"
+python3 -m holdco --root "$PWD/.sandbox" queue
+```
+
+**What it does not prove.** Two jobs are a smoke test, not a reliability measure. Reliability on
+*your* work comes from shadow mode: 20+ real jobs per job type and the graduation criteria (runbook 03).
 
 ### 4. The facts
 Every market, legal and financing claim used here is sourced and dated in `docs/VIDEO-REVIEW.md`,

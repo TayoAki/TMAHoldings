@@ -15,7 +15,7 @@ lawyer, a CPA and an SBA lender confirm anything you rely on.*
 - **The operating model is the valuable part, and it's right:** a shared layer of agents and rules,
   a GM with real upside, a person approving everything before it reaches a client, and a
   corrections log turned into rules every week. This repo implements all of it and proves the
-  mechanics with a runnable demo (20/20 proofs) and 75 tests.
+  mechanics with a runnable demo (20/20 proofs), 75 tests, and a live run with real Claude agents.
 - **The margin claim needs arithmetic.** At the reported 31% time saving, a 10%-margin firm gets to
   roughly 15–25%, depending on how much freed time you actually capture. 30–40% takes agents doing
   about half the labor hours *and* capturing most of them. Plan on the lower number.
