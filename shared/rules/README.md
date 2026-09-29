@@ -8,7 +8,7 @@ built from the jobs that taught it.
 
 | Layer | File | Example |
 |---|---|---|
-| client | `businesses/<biz>/rules.md` with `Scope: client:<id>` | Acme's Home Depot runs are Materials (COGS) |
+| client | `businesses/<biz>/rules.md` with `Scope: client:<id>` | Bluebird's Restaurant Depot runs are Ingredients (COGS) |
 | business | `businesses/<biz>/rules.md` | Every message is signed "— Dana" |
 | industry | `shared/rules/industries/<industry>.md` | Books must tie to the bank to the cent |
 | global | `shared/rules/global-rules.md` | Nothing reaches a client without a person's approval |
@@ -20,15 +20,17 @@ corrections log: that's what turns agents into something you can trust with a cl
 ## Format
 
 ```markdown
-## R-DEMO-004 · Acme Landscaping: Home Depot transactions are Materials (COGS)
+## R-DEMO-012 · Bluebird Bakery: Restaurant Depot purchases are Ingredients (COGS)
 - **Applies to:** monthly-close            (comma-separated job types, or all)
-- **Scope:** client:acme                   (or all)
+- **Scope:** client:bluebird               (or all)
 - **Non-negotiable:** yes                  (optional)
-- **Rule:** For Acme Landscaping, categorize any transaction whose description contains "HOME DEPOT" as "Materials (COGS)".
-- **Why:** Fixed 3 times across 2 jobs by Dana Ruiz. Evidence: C-0001, C-0002, C-0004.
-- **Check:** `{"type": "vendor_category", "match": "HOME DEPOT", "category": "Materials (COGS)"}`
-- **Source:** weekly corrections review, proposal P-0001
+- **Rule:** For Bluebird Bakery, categorize any transaction whose description contains "RESTAURANT DEPOT" as "Ingredients (COGS)".
+- **Why:** Fixed 3 times across 2 jobs by Dana Ruiz. Evidence: C-0031, C-0032, C-0035.
+- **Check:** `{"type": "vendor_category", "match": "RESTAURANT DEPOT", "category": "Ingredients (COGS)"}`
+- **Source:** weekly corrections review, proposal P-0007
 - **Added:** 2026-08-05 by Dana Ruiz
+
+(An illustration: this rule is not in the demo firm's `rules.md`.)
 ```
 
 IDs: `G-###` global, `<INDUSTRY>-###` industry (e.g. `BK-###`), `R-<BUSINESS>-###` business.

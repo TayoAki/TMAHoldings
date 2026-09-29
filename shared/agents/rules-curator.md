@@ -37,7 +37,7 @@ golden cases (the "test" half of that last sentence) automatically.
 2. Read the free-text corrections (send-backs, notes, text edits) and group the ones that mean the
    same thing even when worded differently ("too long", "cut the intro", "shorter please").
 3. For each group seen in two or more separate jobs, write a rule:
-   - **title**: short, specific ("Acme: Home Depot purchases are Materials (COGS)").
+   - **title**: short, specific (for example "Bluebird: Restaurant Depot purchases are Ingredients (COGS)").
    - **applies_to**: the job type. **scope**: `client:<id>` if it is one client's preference, else `all`.
    - **rule_text**: one or two plain, imperative sentences an agent can follow.
    - **why**: what happened, citing correction IDs.

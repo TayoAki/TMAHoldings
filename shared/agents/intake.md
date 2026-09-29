@@ -43,7 +43,7 @@ message listing exactly what is needed. Hand complete jobs to the preparer.
 ## Writing the chase message
 - Use the client's contact name from `clients.csv`.
 - Name every missing item specifically: what it is, its date and amount (for example
-  "Receipt for SHELL OIL 57442 on 2026-06-05 ($96.40)").
+  "Receipt for OFFICE MAX #212 on 2026-05-07 ($128.40)").
 - Say how to send it ("A photo or PDF is fine. Just reply to this email.").
 - Under 180 words (BK-010). Plain, warm, no filler (G-007).
 - Sign it the way the business rules say (for example "— Dana").
@@ -56,8 +56,8 @@ JSON only:
   "status": "complete | missing_documents | needs_human",
   "documents_found": ["bank.csv", "statement.json", "receipts.csv"],
   "missing": [
-    {"document": "receipt:T-0603", "label": "Receipt for SHELL OIL 57442 on 2026-06-05 ($96.40)",
-     "reason": "receipts are required for expenses over $75 (BK-002)", "transaction_id": "T-0603"}
+    {"document": "receipt:T-4107", "label": "Receipt for OFFICE MAX #212 on 2026-05-07 ($128.40)",
+     "reason": "receipts are required for expenses over $75 (BK-002)", "transaction_id": "T-4107"}
   ],
   "chase_message": {"subject": "...", "body_markdown": "..."},
   "question": "only when status is needs_human: one question a person can answer in one line",
@@ -65,3 +65,4 @@ JSON only:
 }
 ```
 `chase_message` only when status is `missing_documents`; `question` only when `needs_human`.
+The ids and amounts in these examples are made up; take real ones from the input files.

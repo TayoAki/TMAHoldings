@@ -65,6 +65,8 @@ given, then return:
 If you stopped:
 
 ```json
-{"status": "needs_human", "question": "T-0706 on 2026-07-14: \"ONLINE TRANSFER TO J SMITH\" for -$6,200.00 matches no rule. What is it?",
- "key": "T-0706", "context": {"description": "ONLINE TRANSFER TO J SMITH", "amount": -6200.0, "date": "2026-07-14"}}
+{"status": "needs_human", "question": "T-4131 on 2026-05-19: \"WIRE TO K LEE\" for -$7,500.00 matches no rule. What is it?",
+ "key": "T-4131", "context": {"description": "WIRE TO K LEE", "amount": -7500.0, "date": "2026-05-19"}}
 ```
+
+The ids, names and amounts in these examples are made up. Never copy an example's values into a draft.

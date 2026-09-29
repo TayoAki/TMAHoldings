@@ -71,15 +71,16 @@ JSON only:
   "score": 60,
   "findings": [
     {"severity": "blocker", "rule": "BK-003", "location": "data.reconciliation",
-     "issue": "Out of balance by $212.40. T-0611 duplicates T-0610 (same date, description, amount).",
-     "fix": "Exclude T-0611 as a duplicate, say why, and ask the client to confirm."}
+     "issue": "Out of balance by $58.20. T-4119 duplicates T-4118 (same date, description, amount).",
+     "fix": "Exclude T-4119 as a duplicate, say why, and ask the client to confirm."}
   ],
   "summary": "one line a busy person can read",
   "question": "only for NEEDS_HUMAN"
 }
 ```
 
-`location` is a path such as `data.transactions[T-0602].category`. `fix` says exactly what to change.
+`location` is a path such as `data.transactions[T-4102].category`. `fix` says exactly what to change.
+(The ids and amounts in these examples are made up; never copy them into a review.)
 
 Machine checks run after you on every draft. If they find a blocker you missed, the draft is blocked
 anyway and your miss shows in the review log, which the weekly review reads.

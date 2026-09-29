@@ -12,34 +12,35 @@ and send the client a short summary with any questions.
 | `receipts.csv` | for BK-002 | `date,vendor,amount` — receipts on file, matched to expenses by date and amount |
 
 People's answers to earlier questions are in `job.json` → `answers`, keyed by transaction id
-(e.g. `{"T-0706": "Owner's Draw"}`). Use them; don't ask again.
+(e.g. `{"T-4131": "Owner's Draw"}`). Use them; don't ask again.
 
 ## The deliverable
 
-Write this to the path you are given (`work/draft.vN.json`):
+Write this to the path you are given (`work/draft.vN.json`). The example is for a made-up client
+month; never copy its ids, amounts or categories into a real draft.
 
 ```json
 {
   "job_type": "monthly-close",
-  "client": "acme",
+  "client": "bluebird",
   "client_message": {
-    "subject": "Your June 2026 books are ready for review",
-    "body_markdown": "Hi Maria,\n\nYour June 2026 books are closed. Here's the short version.\n\n## Summary\n- Money in: $14,935.00\n- Money out: $8,349.39\n- Net: $6,585.61\n- Bank balance ties to your statement: yes\n\n## Questions\n1. We left out T-0611 because it looks like a duplicate line in the bank export. Please confirm there was only one purchase.\n\nThe full categorized list is attached.\n\n— Dana"
+    "subject": "Your May 2026 books are ready for review",
+    "body_markdown": "Hi Sam,\n\nYour May 2026 books are closed. Here's the short version.\n\n## Summary\n- Money in: $21,400.00\n- Money out: $17,512.60\n- Net: $3,887.40\n- Bank balance ties to your statement: yes\n\n## Questions\n1. We left out T-4119 because it looks like a duplicate line in the bank export. Please confirm there was only one purchase.\n\nThe full categorized list is attached.\n\n— Dana"
   },
   "data": {
-    "period": "2026-06",
+    "period": "2026-05",
     "transactions": [
-      {"id": "T-0602", "date": "2026-06-03", "description": "HOME DEPOT #4410", "amount": -843.10, "category": "Materials (COGS)"}
+      {"id": "T-4102", "date": "2026-05-04", "description": "RESTAURANT DEPOT #88", "amount": -612.35, "category": "Ingredients (COGS)"}
     ],
     "excluded": [
-      {"id": "T-0611", "reason": "Duplicate of T-0610 in the bank export (same date, description and amount). The statement balance only ties without it."}
+      {"id": "T-4119", "reason": "Duplicate of T-4118 in the bank export (same date, description and amount). The statement balance only ties without it."}
     ],
-    "summary": {"income": 14935.00, "expenses_by_category": {"Payroll": 5230.00}, "net": 6585.61},
-    "reconciliation": {"opening_balance": 12450.00, "closing_balance": 19035.61,
-                       "computed_closing": 19035.61, "difference": 0.00, "status": "tied"}
+    "summary": {"income": 21400.00, "expenses_by_category": {"Ingredients (COGS)": 612.35}, "net": 3887.40},
+    "reconciliation": {"opening_balance": 8200.00, "closing_balance": 12087.40,
+                       "computed_closing": 12087.40, "difference": 0.00, "status": "tied"}
   },
-  "questions_for_client": ["We left out T-0611 because ..."],
-  "rules_applied": ["BK-003", "BK-004", "R-DEMO-002", "R-DEMO-003"],
+  "questions_for_client": ["We left out T-4119 because ..."],
+  "rules_applied": ["BK-003", "BK-004", "R-DEMO-002"],
   "assumptions": []
 }
 ```

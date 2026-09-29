@@ -10,17 +10,17 @@ by a person like any other client message (G-001). The parent job waits in
 ```json
 {
   "job_type": "document-chase",
-  "client": "acme",
+  "client": "bluebird",
   "client_message": {
-    "subject": "Quick request: 2 items for your June 2026 books",
-    "body_markdown": "Hi Maria,\n\nWe're closing your June 2026 books and need 2 more items before we can finish:\n\n- Receipt for SHELL OIL 57442 on 2026-06-05 ($96.40)\n- Receipt for GREENLEAF NURSERY on 2026-06-18 ($1,275.50)\n\nA photo or PDF is fine. Just reply to this email.\n\nThank you!\n— Dana"
+    "subject": "Quick request: 2 items for your May 2026 books",
+    "body_markdown": "Hi Sam,\n\nWe're closing your May 2026 books and need 2 more items before we can finish:\n\n- Receipt for OFFICE MAX #212 on 2026-05-07 ($128.40)\n- Receipt for RESTAURANT DEPOT #88 on 2026-05-22 ($904.10)\n\nA photo or PDF is fine. Just reply to this email.\n\nThank you!\n— Dana"
   },
   "data": {
     "missing": [
-      {"document": "receipt:T-0603", "label": "Receipt for SHELL OIL 57442 on 2026-06-05 ($96.40)",
-       "reason": "receipts are required for expenses over $75 (BK-002)", "transaction_id": "T-0603"}
+      {"document": "receipt:T-4107", "label": "Receipt for OFFICE MAX #212 on 2026-05-07 ($128.40)",
+       "reason": "receipts are required for expenses over $75 (BK-002)", "transaction_id": "T-4107"}
     ],
-    "parent_job": "2026-06-acme-monthly-close"
+    "parent_job": "2026-05-bluebird-monthly-close"
   },
   "rules_applied": ["BK-001", "BK-002"]
 }
