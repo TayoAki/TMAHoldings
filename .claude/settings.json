@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m holdco status:*)",
+      "Bash(python3 -m holdco queue:*)",
+      "Bash(python3 -m holdco job:*)",
+      "Bash(python3 -m holdco run:*)",
+      "Bash(python3 -m holdco record:*)",
+      "Bash(python3 -m holdco record-run:*)",
+      "Bash(python3 -m holdco check:*)",
+      "Bash(python3 -m holdco corrections:*)",
+      "Bash(python3 -m holdco rules list:*)",
+      "Bash(python3 -m holdco rules proposals:*)",
+      "Bash(python3 -m holdco rules propose:*)",
+      "Bash(python3 -m holdco golden:*)",
+      "Bash(python3 -m holdco eval:*)",
+      "Bash(python3 -m holdco metrics:*)",
+      "Bash(python3 -m holdco graduation:*)",
+      "Bash(python3 -m holdco deal:*)",
+      "Bash(python3 -m holdco model:*)",
+      "Bash(python3 -m holdco demo:*)",
+      "Bash(python3 -m holdco sandbox:*)",
+      "Bash(python3 -m unittest:*)"
+    ],
+    "deny": [
+      "Bash(python3 -m holdco approve:*)",
+      "Bash(python3 -m holdco send:*)",
+      "Bash(python3 -m holdco send-back:*)",
+      "Bash(python3 -m holdco answer:*)",
+      "Bash(python3 -m holdco cancel:*)",
+      "Bash(python3 -m holdco shadow:*)",
+      "Bash(python3 -m holdco rollout:*)",
+      "Bash(python3 -m holdco rules accept:*)",
+      "Bash(python3 -m holdco rules reject:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/human_only_guard.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

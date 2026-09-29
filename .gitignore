@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+.sandbox/
+.holdco-demo/
+dist/
+.env
+.env.*
+
+# Real business data never goes in git: client documents, jobs, approvals, outboxes and
+# corrections are confidential (and regulated). Only the template and fictional demo firms
+# are committed. Keep real business folders in this workspace (ignored) or a private store.
+businesses/*
+!businesses/README.md
+!businesses/_template/
+!businesses/demo-*/
+businesses/*/jobs/
+businesses/*/outbox/
+businesses/*/proposals/
+businesses/*/golden/*
+!businesses/_template/golden/.gitkeep
+businesses/*/rollout-log.jsonl
+
+# Real deal files (financials, CIMs, LOIs) are confidential; only the fictional example is committed.
+thesis/deals/*
+!thesis/deals/example-*

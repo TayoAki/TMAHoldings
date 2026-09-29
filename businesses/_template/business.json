@@ -1,0 +1,16 @@
+{
+  "name": "REPLACE: Business name",
+  "industry": "bookkeeping",
+  "demo": false,
+  "gm": "REPLACE: GM name",
+  "approvers": ["REPLACE: GM name"],
+  "rule_prefix": "R-REPLACE",
+  "review_pass_score": 80,
+  "max_drafts": 3,
+  "metric_job_types": ["monthly-close"],
+  "rollout": {
+    "monthly-close": "shadow"
+  },
+  "acquired_on": null,
+  "timezone": "America/New_York"
+}

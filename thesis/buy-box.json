@@ -1,0 +1,26 @@
+{
+  "_note": "DRAFT buy box for TMA Holdings. Thresholds are planning assumptions from 2025-26 market data (see docs/VIDEO-REVIEW.md, section 'Deal math'): confirm with a broker, an SBA lender and a CPA. `holdco deal score` reads this file.",
+  "industries": [
+    "bookkeeping",
+    "tax-prep"
+  ],
+  "licensing_ok": [
+    "none"
+  ],
+  "revenue_min": 500000,
+  "revenue_max": 3000000,
+  "sde_min": 150000,
+  "max_price_to_sde": 3.0,
+  "max_price_to_revenue": {
+    "bookkeeping": 1.1,
+    "tax-prep": 1.2,
+    "insurance-agency": 1.6,
+    "property-management": 1.0
+  },
+  "min_dscr_today": 1.25,
+  "min_recurring_revenue_pct": 0.6,
+  "max_top_client_pct": 0.15,
+  "requires_gm_candidate": true,
+  "min_owner_transition_months": 6,
+  "min_ai_addressable_work_pct": 0.3
+}

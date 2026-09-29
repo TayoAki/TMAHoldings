@@ -1,0 +1,4 @@
+id,name,contact_name,since,status,left_on,monthly_fee,loyal_to,sensitivity
+acme,Acme Landscaping (fictional),Maria,2004-03-01,active,,650,Dana Ruiz,Reads email on her phone; wants it short
+bluebird,Bluebird Bakery (fictional),Sam,2011-09-15,active,,450,Dana Ruiz,Sensitive about fees; never mention fees by email
+northside,Northside Dental (fictional),Dr. Lee,2016-01-10,churned,2026-08-15,900,Ravi Patel,Left after a fee increase announced by email
