@@ -31,13 +31,15 @@
       "Bash(python3 -m holdco shadow:*)",
       "Bash(python3 -m holdco rollout:*)",
       "Bash(python3 -m holdco rules accept:*)",
-      "Bash(python3 -m holdco rules reject:*)"
+      "Bash(python3 -m holdco rules reject:*)",
+      "Bash(python3 -m holdco keys add:*)",
+      "Bash(python3 -m holdco outbox verify:*)"
     ]
   },
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit|Read|Grep|Glob",
         "hooks": [
           {
             "type": "command",

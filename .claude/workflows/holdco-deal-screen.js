@@ -78,7 +78,7 @@ const MEMO_SCHEMA = {
 
 phase('Numbers')
 const numbers = await agent(`${context}
-Run: python3 -m holdco --root ${ROOT} deal score ${dealPath} --json
+Run: python3 -m holdco deal score ${dealPath} --json --root ${JSON.stringify(ROOT)}
 Return the key numbers from its JSON: verdict, fit_score, ebitda_today, asking_price (financing.price), max_price,
 binding_cap, dscr_year1, dscr_peak, failed_checks (criterion + detail for every check with ok=false),
 warnings, and scenarios (name, margin, dscr, cash_after_debt). Do not add opinions.`,

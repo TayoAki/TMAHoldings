@@ -16,7 +16,8 @@ if (!BIZ) {
   log('Pass {root, business}.')
   return { error: 'no business given' }
 }
-const cli = cmd => `python3 -m holdco --root ${ROOT} ${cmd}`
+// --root goes last so the command matches the permission rules in .claude/settings.json.
+const cli = cmd => `python3 -m holdco ${cmd} --root ${JSON.stringify(ROOT)}`
 
 const PROPOSAL = {
   type: 'object',

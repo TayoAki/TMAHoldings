@@ -16,7 +16,8 @@ if (!BIZ || !CASES.length) {
   log('Pass {root, business, cases}. List cases with `python3 -m holdco golden list <business> --json`.')
   return { error: 'nothing to evaluate' }
 }
-const cli = cmd => `python3 -m holdco --root ${ROOT} ${cmd}`
+// --root goes last so the command matches the permission rules in .claude/settings.json.
+const cli = cmd => `python3 -m holdco ${cmd} --root ${JSON.stringify(ROOT)}`
 
 const MATERIALIZE_SCHEMA = {
   type: 'object',

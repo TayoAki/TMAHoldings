@@ -1,7 +1,7 @@
 export const meta = {
   name: 'holdco-process-job',
   description: 'Run holdco client jobs through intake, preparer and reviewer agents, record every step, and stop at the human approval queue',
-  whenToUse: 'A TMA Holdings business has jobs in state received, ready or blocked. Pass {root: "<absolute workspace path>", jobs: [{business, job, state, drafts}]} from `python3 -m holdco job list --json`. It never approves or sends anything: a person does that with the holdco CLI.',
+  whenToUse: 'A TMA Holdings business has jobs in state received, ready, drafted or blocked. Pass {root: "<absolute workspace path>", jobs: <the output of `python3 -m holdco job list --json --root <root>`, as is>}. It never approves or sends anything: a person does that with the holdco CLI.',
   phases: [
     { title: 'Intake', detail: 'are the documents complete? draft a chase if not' },
     { title: 'Prepare', detail: 'preparer writes work/draft.vN.json' },
@@ -13,16 +13,21 @@ export const meta = {
 // ---------------------------------------------------------------- inputs
 
 const ROOT = String((args && args.root) || '.').replace(/\/+$/, '')
-const JOBS = ((args && args.jobs) || []).filter(j => j && j.business && j.job)
-const MAX_DRAFTS = (args && args.maxDrafts) || 3
+// Accepts `job list --json` rows as they are ({business, job, id, state, drafts, ...}).
+const JOBS = ((args && args.jobs) || []).filter(Boolean).map(j => ({ ...j, job: j.job || j.id }))
+  .filter(j => j.business && j.job)
+// The engine hands a job to a person after business.json "max_drafts" blocked drafts; this is only a safety net.
+const MAX_ROUNDS = (args && args.maxRounds) || 10
+const AGENT_STATES = ['received', 'ready', 'drafted', 'blocked']
 
 if (!ROOT.startsWith('/')) log(`root "${ROOT}" is relative; pass an absolute path so agents can write files reliably`)
 if (!JOBS.length) {
-  log('No jobs given. Run `python3 -m holdco job list --state received --json` and pass {root, jobs}.')
-  return { processed: [] }
+  log('No jobs given. Run `python3 -m holdco job list --json --root <root>` and pass {root, jobs: <its output>}.')
+  return { processed: [], error: 'no jobs given' }
 }
 
-const cli = cmd => `python3 -m holdco --root ${ROOT} ${cmd}`
+// --root goes last so the command matches the permission rules in .claude/settings.json.
+const cli = cmd => `python3 -m holdco ${cmd} --root ${JSON.stringify(ROOT)}`
 const jobDir = j => `${ROOT}/businesses/${j.business}/jobs/${j.job}`
 const bizDir = j => `${ROOT}/businesses/${j.business}`
 
@@ -50,9 +55,23 @@ const INTAKE_SCHEMA = {
       required: ['subject', 'body_markdown'],
     },
     question: { type: 'string' },
+    question_key: { type: 'string' },
     rules_applied: { type: 'array', items: { type: 'string' } },
   },
   required: ['status', 'documents_found', 'missing', 'rules_applied'],
+}
+
+// What record_intake will refuse, checked before anything is recorded.
+function intakeProblem(r) {
+  if (!r) return 'the intake agent returned nothing'
+  if (r.status === 'missing_documents') {
+    const m = r.chase_message || {}
+    if (!(r.missing || []).length || !m.subject || !m.body_markdown) {
+      return 'status "missing_documents" needs a non-empty "missing" list and a chase_message with subject and body_markdown'
+    }
+  }
+  if (r.status === 'needs_human' && !String(r.question || '').trim()) return 'status "needs_human" needs a "question"'
+  return null
 }
 
 const PREP_SCHEMA = {
@@ -87,6 +106,7 @@ const REVIEW_SCHEMA = {
     },
     summary: { type: 'string' },
     question: { type: 'string' },
+    question_key: { type: 'string' },
   },
   required: ['verdict', 'score', 'findings', 'summary'],
 }
@@ -110,14 +130,15 @@ const readRules = j => `the rules that apply: ${ROOT}/shared/rules/global-rules.
   `${ROOT}/shared/rules/industries/<industry>.md (industry is in ${bizDir(j)}/business.json), and ${bizDir(j)}/rules.md ` +
   `(rules with "Scope: client:<id>" apply only to that client)`
 
-const intakePrompt = j => `You are the INTAKE agent for TMA Holdings.
+const intakePrompt = (j, problem) => `You are the INTAKE agent for TMA Holdings.
 Workspace root: ${ROOT}. Business: ${j.business}. Job: ${j.job}. Job folder: ${jobDir(j)}.
 1. Read ${ROOT}/shared/agents/intake.md and follow it exactly.
 2. Read ${jobDir(j)}/job.json (job type, client, period), then ${ROOT}/shared/job-types/<job type>.md.
 3. Read ${readRules(j)}.
 4. Read the client notes: ${bizDir(j)}/clients.md and ${bizDir(j)}/clients.csv.
 5. Check the files in ${jobDir(j)}/input/ against the checklist and threshold rules.
-Do not write any files. Return the JSON your job description specifies.`
+Do not write any files. Return the JSON your job description specifies.${problem
+  ? `\nYour previous answer could not be recorded: ${problem}. Return corrected JSON.` : ''}`
 
 const chaseReviewPrompt = (j, intake) => `You are the REVIEWER agent for TMA Holdings, reviewing a document-chase
 message drafted by the intake agent. It is not recorded yet; it is quoted below.
@@ -147,11 +168,13 @@ or, if you must stop and ask a person, {"status": "needs_human", "question": "..
 const reviewPrompt = (j, draftFile) => `You are the REVIEWER agent for TMA Holdings.
 Workspace root: ${ROOT}. Business: ${j.business}. Job: ${j.job}. Job folder: ${jobDir(j)}.
 1. Read ${ROOT}/shared/agents/reviewer.md and follow it exactly.
-2. The draft to review is ${jobDir(j)}/${draftFile}. Also read the files in ${jobDir(j)}/input/,
-   ${jobDir(j)}/job.json (answers people gave), the job-type spec ${ROOT}/shared/job-types/<job type>.md,
+2. The draft to review is ${jobDir(j)}/${draftFile}. Also read the files in ${jobDir(j)}/input/
+   (for a document-chase job, the input/ folder of the parent job named in job.json),
+   ${jobDir(j)}/job.json (answers people gave, earlier reviews), the job-type spec ${ROOT}/shared/job-types/<job type>.md,
    ${readRules(j)}, and the client notes (${bizDir(j)}/clients.md, clients.csv).
 3. Recompute every total from the input files yourself. Check client-scoped rules first.
-You cannot edit the draft. Return the review JSON from your job description.`
+You cannot edit the draft. If a person must decide something, return verdict NEEDS_HUMAN with a "question"
+(and "question_key", e.g. the transaction id). Return the review JSON from your job description.`
 
 const clerkPrompt = (j, payload, n) => `You are the CLERK for TMA Holdings. Do exactly this and nothing else.
 1. Write this JSON exactly (valid JSON, same content) to the file ${jobDir(j)}/work/run-${n}.json:
@@ -189,9 +212,21 @@ async function processJob(j) {
   try {
     let state = j.state
     let pendingIntake = null
+    let feedback = null
+    let drafts = j.drafts || 0
+    if (!AGENT_STATES.includes(state)) {
+      result.error = `job is ${state}; nothing for agents to do`
+      return result
+    }
     if (state === 'received') {
-      const intake = await run('intake', intakePrompt(j), INTAKE_SCHEMA, 'Intake', `intake ${j.job}`)
-      if (!intake) throw new Error('intake agent returned nothing')
+      let intake = await run('intake', intakePrompt(j), INTAKE_SCHEMA, 'Intake', `intake ${j.job}`)
+      let problem = intakeProblem(intake)
+      if (problem) {
+        log(`${j.job}: intake answer rejected (${problem}); asking once more`)
+        intake = await run('intake', intakePrompt(j, problem), INTAKE_SCHEMA, 'Intake', `intake ${j.job} (retry)`)
+        problem = intakeProblem(intake)
+        if (problem) throw new Error(`intake: ${problem}`)
+      }
       if (intake.status === 'missing_documents') {
         const chaseReview = await run('reviewer', chaseReviewPrompt(j, intake), REVIEW_SCHEMA, 'Review', `review chase ${j.job}`)
         await record({ intake, chase_review: chaseReview || null, rounds: [] })
@@ -207,13 +242,19 @@ async function processJob(j) {
       result.steps.push('intake: all documents present')
       state = 'ready'
     }
-    if (state !== 'ready' && state !== 'blocked') {
-      result.error = `job is ${state}; nothing for agents to do`
-      return result
+    if (state === 'drafted') {
+      // A recorded draft is waiting for review (for example after a person answered the reviewer's question).
+      const draftFile = `drafts/v${drafts}.json`
+      const review = await run('reviewer', reviewPrompt(j, draftFile), REVIEW_SCHEMA, 'Review', `review ${j.job} v${drafts}`)
+      if (!review) throw new Error(`reviewer returned nothing for v${drafts}`)
+      const rec = await record({ rounds: [{ version: drafts, review }] })
+      result.steps.push(`v${drafts}: reviewer ${review.verdict} (score ${review.score}) -> ${rec.state}`)
+      if (rec.state !== 'blocked') return result
+      feedback = (rec.findings && rec.findings.length) ? rec.findings : review.findings
+      state = 'blocked'
     }
-    let feedback = null
-    for (let round = 1; round <= MAX_DRAFTS; round++) {
-      const version = (j.drafts || 0) + round
+    for (let round = 1; round <= MAX_ROUNDS; round++) {
+      const version = drafts + 1
       const draftFile = `work/draft.v${version}.json`
       const prep = await run('preparer', preparePrompt(j, draftFile, feedback), PREP_SCHEMA, 'Prepare', `prepare ${j.job} v${version}`)
       if (!prep) throw new Error(`preparer returned nothing for v${version}`)
@@ -226,6 +267,7 @@ async function processJob(j) {
       if (!review) throw new Error(`reviewer returned nothing for v${version}`)
       const rec = await record({ intake: pendingIntake, rounds: [{ version, draft_file: draftFile, review }] })
       pendingIntake = null
+      drafts = version
       const vetoed = review.verdict === 'PASS' && rec.state === 'blocked'
       result.steps.push(`v${version}: reviewer ${review.verdict} (score ${review.score})` +
         (vetoed ? ' but machine checks blocked it' : '') + ` -> ${rec.state}`)

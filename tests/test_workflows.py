@@ -1,8 +1,8 @@
 """The Claude Code workflow scripts, run with scripted agents against a real workspace.
 
 These prove the orchestration logic (what runs when, what gets recorded, how a machine-check
-veto feeds back into the next draft) without spending model calls. The live run with real
-Claude agents is described in docs/PLAYBOOK.md ("How this was proven").
+veto feeds back into the next draft) without spending model calls. The run with real Claude
+agents is recorded in docs/evidence/ and described in docs/PLAYBOOK.md.
 """
 
 from __future__ import annotations
@@ -39,6 +39,45 @@ class Workflows(WorkspaceCase):
 
     def job_args(self, job: dict) -> dict:
         return {"business": self.biz.slug, "job": job["id"], "state": job["state"], "drafts": len(job["drafts"])}
+
+    def listed_jobs(self) -> list[dict]:
+        """`holdco job list --json`, exactly as the docs tell a person to pass it."""
+        result = subprocess.run([sys.executable, "-m", "holdco", "job", "list", self.biz.slug, "--json",
+                                 "--root", str(self.tmp)], cwd=REPO, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def test_job_list_output_can_be_passed_as_is(self):
+        job = self.new_job("2026-08")
+        data = self.run_workflow("holdco-process-job", {"root": str(self.tmp), "jobs": self.listed_jobs()})
+        self.assertEqual(data["out"]["processed"][0]["job"], job["id"])
+        self.assertEqual(self.job(job["id"])["state"], jobs.AWAITING_APPROVAL)
+
+    def test_a_reviewer_question_resumes_with_a_review_only_round(self):
+        job = self.new_job("2026-08")
+        self.run_workflow("holdco-process-job", {"root": str(self.tmp), "jobs": self.listed_jobs()},
+                          env={"MOCK_REVIEWER": "ask"})
+        asked = self.job(job["id"])
+        self.assertEqual((asked["state"], asked["questions"][-1]["key"]), (jobs.NEEDS_HUMAN, "T-0807"))
+        jobs.answer(self.biz, job["id"], "Yes: materials for the Hill St job", DANA, HUMAN)
+        self.assertEqual(self.job(job["id"])["state"], jobs.DRAFTED)
+        data = self.run_workflow("holdco-process-job", {"root": str(self.tmp), "jobs": self.listed_jobs()},
+                                 env={"MOCK_REVIEWER": "ask"})
+        self.assertEqual([c["role"] for c in data["calls"]], ["reviewer", "clerk"])
+        final = self.job(job["id"])
+        self.assertEqual((final["state"], len(final["drafts"])), (jobs.AWAITING_APPROVAL, 1))
+
+    def test_an_incomplete_intake_answer_is_asked_again_before_anything_is_recorded(self):
+        job = self.new_job("2026-08")
+        data = self.run_workflow("holdco-process-job", {"root": str(self.tmp), "jobs": [self.job_args(job)]},
+                                 env={"MOCK_INTAKE": "sloppy"})
+        self.assertEqual([c["role"] for c in data["calls"]][:2], ["intake", "intake"])
+        self.assertEqual(self.job(job["id"])["state"], jobs.AWAITING_APPROVAL)
+
+    def test_workflow_commands_put_root_last_to_match_the_permission_rules(self):
+        for script in WORKFLOWS.glob("*.js"):
+            text = script.read_text()
+            self.assertNotIn("holdco --root", text, script.name)
 
     def test_process_job_blocks_then_passes_and_stops_at_approval(self):
         job = self.new_job("2026-06")

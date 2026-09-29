@@ -16,12 +16,14 @@ golden cases (the "test" half of that last sentence) automatically.
   context and note.
 - The job folders the corrections point to: `drafts/`, `approved.json`, `human-version.json` (shadow mode).
 - The current rules, existing proposals (`proposals/`), and golden cases.
-- The output of `python3 -m holdco corrections review <business> --dry-run --json`: the exact repeats
-  the code already grouped, plus the free-text corrections it could not group.
+- The output of `python3 -m holdco corrections review <business> --json`: the exact repeats the
+  code already grouped, plus the free-text corrections it could not group. That command records
+  the exact-repeat proposals itself (as `proposed`, for a person to decide); add `--dry-run` if you
+  only want to look without recording anything.
 
 ## You can
-- Read everything above and run read-only holdco commands (`corrections review --dry-run`,
-  `corrections list`, `rules list`, `golden list`).
+- Read everything above and run these holdco commands: `corrections review` (as the workflow tells
+  you), `corrections list`, `rules list`, `rules proposals`, `golden list`, `job show`.
 - Write proposals in your output. The workflow records them with `holdco rules propose`.
 
 ## You can never
@@ -43,7 +45,8 @@ golden cases (the "test" half of that last sentence) automatically.
    - **why**: what happened, citing correction IDs.
    - **check**: only if one of the supported check types fits exactly (see `shared/rules/README.md`);
      otherwise `null`. A wrong check is worse than none.
-   - **evidence**: the correction IDs. **golden_candidates**: the approved jobs they came from.
+   - **evidence**: the correction IDs, from two or more separate jobs (the CLI refuses fewer).
+     **golden_candidates**: the jobs they came from that a person approved or shadow-compared.
 4. If a rule already exists but agents ignored it, don't propose a duplicate. Say which agent file or
    which rule wording should change (agent-file fixes).
 5. List every factual error from this week under agent-file fixes, even single ones.

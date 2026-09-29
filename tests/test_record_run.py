@@ -92,3 +92,47 @@ class RecordRun(WorkspaceCase):
         with self.assertRaises(HoldcoError) as ctx:
             jobs.record_run(self.ws, self.biz, job["id"], run)
         self.assertIn("missing 'client_message'", str(ctx.exception))
+
+    def test_a_failed_run_records_nothing_so_it_can_be_retried(self):
+        job = self.new_job("2026-08")
+        write_json(jobs.job_dir(self.biz, job["id"]) / "work/draft.v1.json", {"job_type": "monthly-close"})
+        broken = {"intake": {"status": "complete"}, "rounds": [{"version": 1, "draft_file": "work/draft.v1.json"}]}
+        with self.assertRaises(HoldcoError):
+            jobs.record_run(self.ws, self.biz, job["id"], broken)
+        self.assertEqual(self.job(job["id"])["state"], jobs.RECEIVED)
+        fixed = {"intake": {"status": "complete"},
+                 "rounds": [{"version": 1, "draft_file": self._agent_draft(job, 1),
+                             "review": {"verdict": "PASS", "score": 95, "findings": [], "summary": "ok"}}]}
+        self.assertEqual(jobs.record_run(self.ws, self.biz, job["id"], fixed)["job"]["state"], jobs.AWAITING_APPROVAL)
+
+    def test_derived_totals_can_be_left_out_of_a_draft(self):
+        job = self.new_job("2026-08")
+        rel = self._agent_draft(job, 1)
+        path = jobs.job_dir(self.biz, job["id"]) / rel
+        draft = read_json(path)
+        del draft["data"]["summary"]
+        for key in ("computed_closing", "difference", "status"):
+            del draft["data"]["reconciliation"][key]
+        write_json(path, draft)
+        run = {"intake": {"status": "complete"},
+               "rounds": [{"version": 1, "draft_file": rel, "review": {"verdict": "PASS", "score": 95, "findings": []}}]}
+        job = jobs.record_run(self.ws, self.biz, job["id"], run)["job"]
+        self.assertEqual(job["state"], jobs.AWAITING_APPROVAL)
+        self.assertEqual(jobs.latest_draft(self.biz, job)["data"]["reconciliation"]["status"], "tied")
+
+    def test_a_draft_file_outside_work_is_refused(self):
+        job = self.new_job("2026-08")
+        outside = self.tmp / "elsewhere.json"
+        write_json(outside, read_json(jobs.job_dir(self.biz, job["id"]) / self._agent_draft(job, 1)))
+        for draft_file in (str(outside), "../../../elsewhere.json", "input/bank.csv"):
+            with self.subTest(draft_file=draft_file), self.assertRaisesRegex(HoldcoError, "inside"):
+                jobs.record_run(self.ws, self.biz, job["id"], {"intake": {"status": "complete"},
+                                                               "rounds": [{"version": 1, "draft_file": draft_file}]})
+
+    def test_a_review_only_round_reviews_the_recorded_draft(self):
+        job = self.new_job("2026-08")
+        jobs.record_run(self.ws, self.biz, job["id"], {"intake": {"status": "complete"},
+                                                       "rounds": [{"version": 1, "draft_file": self._agent_draft(job, 1)}]})
+        self.assertEqual(self.job(job["id"])["state"], jobs.DRAFTED)
+        run = {"rounds": [{"version": 1, "review": {"verdict": "PASS", "score": 97, "findings": [], "summary": "ok"}}]}
+        self.assertEqual(jobs.record_run(self.ws, self.biz, job["id"], run)["job"]["state"], jobs.AWAITING_APPROVAL)

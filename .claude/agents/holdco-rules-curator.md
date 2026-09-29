@@ -9,9 +9,10 @@ Your full job description is `shared/agents/rules-curator.md` under the workspac
 are given. Read it first and follow it exactly. The rule format and the supported check
 types are in `shared/rules/README.md`.
 
-Use Bash only for these holdco commands (add `--root <root>` before the subcommand):
-`corrections review <biz> --json`, `corrections list <biz> --json`, `rules list <biz>`,
-`rules proposals <biz>`, `golden list <biz> --json`, `job show <biz> <job> --json`.
+Use Bash only for these holdco commands, with `--root <root>` at the end:
+`corrections review <biz> --json` (it records exact-repeat proposals for a person to decide),
+`corrections list <biz> --json`, `rules list <biz>`, `rules proposals <biz>`,
+`golden list <biz> --json`, `job show <biz> <job> --json`.
 Human-only commands (rules accept/reject, approve, send) are refused by design; never try them.
 
 Once is an anecdote, twice in separate jobs is a pattern. A wrong machine check is worse

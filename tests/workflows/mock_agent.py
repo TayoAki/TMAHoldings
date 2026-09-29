@@ -6,7 +6,9 @@ and the real holdco CLI. If a workflow stops giving agents what they need, these
 
     python3 tests/workflows/mock_agent.py <role>  < prompt
 
-Set MOCK_REVIEWER=lenient to make the reviewer pass everything (to test machine-check vetoes).
+Set MOCK_REVIEWER=lenient to make the reviewer pass everything (to test machine-check vetoes),
+MOCK_REVIEWER=ask to make it ask a person once per job, and MOCK_INTAKE=sloppy to make the
+intake agent's first answer incomplete (to test that the workflow asks again).
 """
 
 from __future__ import annotations
@@ -45,6 +47,8 @@ def run_cli(command: str) -> tuple[int, str]:
 
 def intake(prompt: str) -> dict:
     ws, biz, job, folder = context(prompt)
+    if os.environ.get("MOCK_INTAKE") == "sloppy" and "could not be recorded" not in prompt:
+        return {"status": "needs_human", "documents_found": [], "missing": [], "rules_applied": []}
     return get_runner(ws, biz).intake(job["type"], job["client"], folder / "input", job["period"])
 
 
@@ -69,6 +73,9 @@ def reviewer(prompt: str) -> dict:
     ws, biz, job, folder = context(prompt)
     if os.environ.get("MOCK_REVIEWER") == "lenient":
         return {"verdict": "PASS", "score": 100, "findings": [], "summary": "Looks fine (lenient mock)."}
+    if os.environ.get("MOCK_REVIEWER") == "ask" and not any(q["asked_by"] == "reviewer" for q in job["questions"]):
+        return {"verdict": "NEEDS_HUMAN", "score": 90, "findings": [], "summary": "Needs a person.",
+                "question": "Is GREENLEAF NURSERY (T-0807) for a client job?", "question_key": "T-0807"}
     if "Chase message:" in prompt:
         missing = json.loads(re.search(r"Missing items \(from intake\): (.*)\n", prompt).group(1))
         message = json.loads(re.search(r"Chase message: (.*)\n", prompt).group(1))
@@ -78,7 +85,7 @@ def reviewer(prompt: str) -> dict:
         return {"verdict": verdict(findings), "score": score(findings), "findings": findings, "summary": "chase checked"}
     draft_path = re.search(r"The draft to review is (\S+?)\. Also", prompt).group(1)
     review = get_runner(ws, biz).review(job["type"], job["client"], folder / "input", read_json(draft_path),
-                                        job["answers"])
+                                        job["answers"], job["period"])
     return review
 
 
