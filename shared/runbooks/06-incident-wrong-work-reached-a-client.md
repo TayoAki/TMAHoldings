@@ -11,9 +11,10 @@ system. Both are handled the same way. Blameless, fast, and fixed at the root.
 2. Find exactly what went out: `businesses/<biz>/outbox/<job>/manifest.json` shows who approved
    and released it, when, the content hash and the file hashes; `jobs/<job>/job.json` has the full
    history. Then check the whole outbox, **(you)**:
-   `python3 -m holdco outbox verify <biz> --by "<you>"` (each person verifies what they released).
-   An item that fails was edited after release, or never released through `holdco send`: treat it
-   as tampering and tell counsel. If your passphrase suddenly fails and you're sure it's right,
+   `python3 -m holdco outbox verify <biz> --by "<you>"`. Keys are personal, so each person verifies
+   what they released; items released by someone else show as SKIP with their name, so ask them to
+   run it too. An item that fails was edited after release, names a sender who isn't an approver or
+   owner, or was never released through `holdco send`: treat it as tampering and tell counsel. If your passphrase suddenly fails and you're sure it's right,
    assume the key file was replaced: stop all sends and rotate keys from a clean machine
    (`holdco keys add ... --rotate`, or remove the file and add a new key).
 3. Decide how serious it is:

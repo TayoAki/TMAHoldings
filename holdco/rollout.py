@@ -29,9 +29,10 @@ def graduation_report(biz: Business, job_type: str, last: int = 20, criteria: di
     """Evidence only counts from the latest mode change: after a rollback, graduation starts over."""
     criteria = {**DEFAULT_CRITERIA, **(biz.setting("graduation") or {}), **(criteria or {})}
     since = last_change(biz, job_type)
+    window = max(last, int(criteria["min_jobs"]))  # a higher bar (min_jobs 30) needs a window that big
     shadowed = sorted((j for j in jobs.list_jobs(biz) if j["type"] == job_type and j.get("shadow")
                        and (since is None or j["shadow"]["at"] > since)),
-                      key=lambda j: j["shadow"]["at"])[-last:]
+                      key=lambda j: j["shadow"]["at"])[-window:]
     ids = {j["id"] for j in shadowed}
     factual_by_job: dict[str, int] = {}
     for entry in corrections.load_corrections(biz):

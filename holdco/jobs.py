@@ -27,7 +27,7 @@ from pathlib import Path
 from holdco import checks, corrections, jobtypes, keys
 from holdco.config import Business, HoldcoError, Workspace, safe_id
 from holdco.diffing import Change, diff
-from holdco.guard import ExecutionContext, require_human
+from holdco.guard import ExecutionContext, allowed_people, require_human
 from holdco.util import hash_tree, now, now_iso, read_json, sha256_file, sha256_json, write_json
 
 RECEIVED = "received"
@@ -684,10 +684,13 @@ def send(biz: Business, job_id: str, by: str, ctx: ExecutionContext, passphrase:
     if by != approval["by"]:
         raise HoldcoError(f"{approval['by']} approved {job_id}, so {approval['by']} releases it "
                           "(the same passphrase signs both).")
-    key, _ = keys.unlock(biz, by, passphrase)
+    key, key_record = keys.unlock(biz, by, passphrase)
     if not keys.verify(key, keys.approval_payload(biz, job, approval), approval.get("signature")):
-        raise HoldcoError(f"The approval on {job_id} is not signed with {by}'s key. Nothing was sent. "
-                          "Treat this as an incident (runbook 06): something wrote an approval without the passphrase.")
+        rotated = approval.get("key_id") != key_record["key_id"]
+        raise HoldcoError(f"The approval on {job_id} is not signed with {by}'s current key. Nothing was sent. "
+                          + ("If you replaced your key after approving it, send it back and approve it again; "
+                             "otherwise t" if rotated else "T")
+                          + "reat this as an incident (runbook 06): something wrote an approval without the passphrase.")
     approved = read_json(job_dir(biz, job_id) / "approved.json")
     if sha256_json(approved) != approval["sha256"]:
         raise HoldcoError(
@@ -720,7 +723,8 @@ def verify_outbox(biz: Business, by: str, ctx: ExecutionContext, passphrase: str
     by `holdco send` with this person's passphrase, or was changed afterwards.
     """
     require_human(ctx, biz, "outbox verify", by)
-    key, _ = keys.unlock(biz, by, passphrase)
+    key, key_record = keys.unlock(biz, by, passphrase)
+    people = set(allowed_people(biz))
     results = []
     folders = sorted(p for p in biz.outbox_dir.iterdir() if p.is_dir()) if biz.outbox_dir.is_dir() else []
     for folder in folders:
@@ -729,9 +733,16 @@ def verify_outbox(biz: Business, by: str, ctx: ExecutionContext, passphrase: str
             results.append({"item": folder.name, "ok": False, "problems": ["no manifest: not released by holdco send"]})
             continue
         manifest = read_json(manifest_path)
-        if manifest.get("sent_by") != by:
-            results.append({"item": folder.name, "ok": None,
-                            "problems": [f"released by {manifest.get('sent_by')}: they verify their own items"]})
+        sender = manifest.get("sent_by")
+        if sender not in people:
+            results.append({"item": folder.name, "ok": False,
+                            "problems": [f"names {sender!r} as the sender, who is not an approver or owner of "
+                                         f"{biz.slug}: not released by holdco send"]})
+            continue
+        if sender != by:
+            # Each person's key is their own, so only the sender can check their signature.
+            results.append({"item": folder.name, "ok": None, "sender": sender,
+                            "problems": [f"released by {sender}: only they can verify it"]})
             continue
         problems = []
         try:
@@ -740,6 +751,9 @@ def verify_outbox(biz: Business, by: str, ctx: ExecutionContext, passphrase: str
             payload = None
         if payload is None or not keys.verify(key, payload, manifest.get("release_signature")):
             problems.append("release signature does not verify")
+            if manifest.get("key_id") != key_record["key_id"]:
+                problems.append(f"it names key {manifest.get('key_id')}, not your current key: if you replaced "
+                                "your key after releasing it, that explains the failure; otherwise it's tampering")
         listed = manifest.get("files") or {}
         for name, digest in listed.items():
             path = folder / name

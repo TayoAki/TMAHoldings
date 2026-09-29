@@ -5,8 +5,11 @@
     "tax-prep"
   ],
   "licensing_ok": [
-    "none"
+    "none",
+    "ptin",
+    "efin"
   ],
+  "_licensing_note": "A deal file's \"licensing\" is the credential the work needs. Workable for us: none; ptin (every paid preparer gets their own); efin (it doesn't transfer: file a new e-file application, see runbook 01). Not workable (walk away): cpa-attest (CPAs must own the majority), insurance-producer and re-broker unless a licensed person will hold the designation for us.",
   "revenue_min": 500000,
   "revenue_max": 3000000,
   "sde_min": 150000,

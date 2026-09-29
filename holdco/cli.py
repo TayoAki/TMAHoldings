@@ -123,7 +123,10 @@ def cmd_queue(args) -> int:
     rows, agent_rows, client_rows = [], [], []
     for biz in ws.list_businesses():
         for job in jobs.list_jobs(biz):
-            if job["state"] == jobs.AWAITING_APPROVAL:
+            if job["state"] == jobs.AWAITING_APPROVAL and jobs.rollout_mode(biz, job["type"]) == jobs.SHADOW:
+                rows.append(f"  SHADOW   {biz.slug} {job['id']}  (agent draft ready: do the job the usual way, "
+                            "then record what you did with `shadow`)")
+            elif job["state"] == jobs.AWAITING_APPROVAL:
                 review = job["reviews"][-1] if job["reviews"] else {}
                 rows.append(f"  APPROVE  {biz.slug} {job['id']}  (v{job['drafts'][-1]['version']}, "
                             f"review {review.get('verdict')} {review.get('score')})")
@@ -175,7 +178,7 @@ def cmd_job_list(args) -> int:
         for job in jobs.list_jobs(biz, args.state, include_eval=args.all):
             out.append({"business": biz.slug, "job": job["id"], "id": job["id"], "type": job["type"],
                         "client": job["client"], "period": job.get("period"), "state": job["state"],
-                        "drafts": len(job["drafts"])})
+                        "drafts": len(job["drafts"]), "events": len(job["history"])})
     if args.json:
         _print_json(out)
     else:
@@ -214,8 +217,13 @@ def cmd_job_show(args) -> int:
         print(f"\n--- Review of v{review['version']}: {review['verdict']} (score {review['score']}) ---")
         for f in review["findings"]:
             print(f"  [{f.get('severity')}] {f.get('rule')}: {f.get('issue')}  Fix: {f.get('fix')}")
-    if job["state"] == jobs.AWAITING_APPROVAL:
-        print(f"\nTo approve: python3 -m holdco approve {biz.slug} {job['id']} --by \"<you>\" --minutes <n> "
+    shadow = jobs.rollout_mode(biz, job["type"]) == jobs.SHADOW
+    if shadow and job["drafts"] and job["state"] not in jobs.TERMINAL:
+        print(f"\n{job['type']} is in shadow mode here: this draft can't be approved. Do the job the usual way, "
+              f"then record what you did: python3 -m holdco shadow {biz.slug} {job['id']} --by \"<you>\" "
+              "--minutes <n> --human-csv <your categories.csv> (runbook 02)")
+    elif job["state"] == jobs.AWAITING_APPROVAL:
+        print(f"\nTo approve: python3 -m holdco approve {biz.slug} {job['id']} --by \"<you>\" --minutes <n> --send "
               "[--set 'data.transactions[T-1].category=...' --reason client_preference]")
     return 0
 
@@ -440,6 +448,11 @@ def cmd_outbox_verify(args) -> int:
         mark = "OK  " if r["ok"] else ("SKIP" if r["ok"] is None else "FAIL")
         print(f"[{mark}] {r['item']}" + "".join(f"\n       {problem}" for problem in r["problems"]))
     failed = [r for r in results if r["ok"] is False]
+    others = sorted({r["sender"] for r in results if r["ok"] is None})
+    if others:
+        print(f"\n{sum(r['ok'] is None for r in results)} item(s) released by {', '.join(others)} were not checked: "
+              "only the person who released an item can verify it. Ask them to run outbox verify before those "
+              "go out.")
     if failed:
         print(f"\n{len(failed)} item(s) failed. Do not deliver them; treat it as an incident (runbook 06).")
     return 1 if failed else 0

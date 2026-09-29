@@ -83,6 +83,16 @@ class Cli(WorkspaceCase):
         self.assertIn("Waiting on the agents", out)
         self.assertIn("next: intake", out)
 
+    def test_shadow_mode_drafts_point_people_at_shadow_not_approve(self):
+        self.set_config(rollout={"monthly-close": "shadow"})
+        job = self.to_approval()
+        queue = cli("queue", root=self.tmp).stdout
+        self.assertIn(f"SHADOW   {self.biz.slug} {job['id']}", queue)
+        self.assertNotIn("APPROVE", queue)
+        shown = cli("job", "show", self.biz.slug, job["id"], root=self.tmp).stdout
+        self.assertIn("shadow mode here", shown)
+        self.assertNotIn("To approve", shown)
+
     def test_eval_with_no_golden_cases_is_not_a_pass(self):
         result = cli("eval", "demo-bookkeeping", root=self.tmp)
         self.assertEqual(result.returncode, 2, result.stdout)

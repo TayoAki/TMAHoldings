@@ -28,7 +28,9 @@ are written down, and the business is plugged into the holdco without a client n
 
 ## Day one, afternoon (you and the GM, two hours)
 5. Create the business folder, then the GM and you each set an approval passphrase in your own
-   terminals (the GM approves client work; you, as owner, make the rule and rollout calls):
+   terminals. The GM's key signs the client work they approve and release; yours is for when you
+   approve or release something yourself and for checking what you released (`outbox verify`).
+   As owner you also make the rule and rollout calls, which need no key:
    `python3 -m holdco new-business <slug> --name "<Name>" --industry <industry> --gm "<GM name>" --owner "<you>"`
    **(you)** `python3 -m holdco keys add <slug> --by "<GM name>"` and `... --by "<you>"`
 6. Interview the GM and fill in, in this order:

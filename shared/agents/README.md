@@ -28,14 +28,16 @@ In this repo that rule is enforced in layers, so it never depends on an agent re
    `rollout`, `rules accept`, ...) inside an agent session (Claude Code sets `CLAUDECODE=1`;
    other runners set `HOLDCO_AGENT=1`) or without an interactive terminal.
 2. Approvals and releases are signed with the approver's passphrase, which no agent has: `send`
-   refuses an unsigned approval, and `holdco outbox verify` flags anything changed or planted.
+   refuses an unsigned approval, and `holdco outbox verify` flags released items that were changed
+   and items no approver or owner released.
 3. `.claude/hooks/human_only_guard.py` blocks those commands, and any write to outboxes,
    approvals, job state, inputs, logs or golden cases, before the tool call runs; holdco agents
    may write only their job's `work/` folder.
 4. Inputs, drafts and approved output are hashed; changes made outside the CLI are refused.
 
-For real client work, agents also run as a separate OS user (runbook 09), because anything
-running under your own account could, with enough effort, rewrite files the first layers guard.
+For real client work, agents also run as a separate OS user that can write only `jobs/` and
+`proposals/` (runbook 09), because anything running under your own account could, with enough
+effort, rewrite files the first layers guard.
 
 ## Where these files are used
 

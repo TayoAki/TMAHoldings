@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import tempfile
 from pathlib import Path
 from typing import Any, Callable, Iterable
@@ -49,15 +50,31 @@ def read_json(path: Path | str) -> Any:
         return json.load(fh)
 
 
+def file_mode(path: Path) -> int:
+    """An existing file keeps its permissions; a new one gets this process's usual ones (umask).
+
+    The temporary file behind an atomic write is private (0600), so without this every state
+    file would end up readable only by whoever wrote it last, and a shared group (runbook 09)
+    could never work.
+    """
+    if path.exists():
+        return stat.S_IMODE(path.stat().st_mode)
+    mask = os.umask(0)
+    os.umask(mask)
+    return 0o666 & ~mask
+
+
 def write_json(path: Path | str, data: Any) -> None:
     """Write JSON atomically so a crash never leaves a half-written state file."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    mode = file_mode(path)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=2, ensure_ascii=False)
             fh.write("\n")
+        os.chmod(tmp, mode)
         os.replace(tmp, path)
     except BaseException:
         if os.path.exists(tmp):

@@ -36,16 +36,26 @@ actions in an agent session, approvals and releases are signed with each approve
 a Claude Code hook blocks writes to state, and `holdco outbox verify` checks what was released.
 All of that runs under your OS account, so a program determined to cheat could still rewrite
 files there. For real client work, add a boundary it can't cross:
-- [ ] Run Claude Code (and any other agent runner) as a **separate OS user** or in a container
-      that can read the workspace but cannot write `businesses/*/jobs/*` outside `work/`,
-      `outbox/`, `golden/`, `proposals/`, the logs or `business.json`, and cannot read `~/.holdco`.
+- [ ] Run Claude Code (and any other agent runner) as a **separate OS user** that shares a group
+      with you. Agents record their work through the holdco CLI, so that user needs write access
+      to each business's `jobs/` and `proposals/` folders, and nothing else: `outbox/`, `golden/`,
+      `business.json`, `corrections-log.jsonl` and `rollout-log.jsonl` belong to you and are
+      read-only for the group, and `~/.holdco` is yours alone. For example:
+      `chgrp -R holdco businesses && chmod -R g+rX,o-rwx businesses && chmod g+ws businesses/*/jobs businesses/*/proposals`,
+      and `umask 007` in both users' shells so new files are shared with the group and nobody else
+      (the CLI keeps each file's mode when it rewrites it). What remains: an agent can still write
+      a job's `approved.json`, but it can't sign one, so `send` refuses it.
 - [ ] The key store (`~/.holdco/keys`, or `HOLDCO_KEYS_DIR`) belongs to the people who approve,
       with folder mode 700 and file mode 600 (the CLI sets these). Never copy it into the repo,
       a shared drive, or an agent's reach.
 - [ ] Each approver's passphrase is long (12+ characters; a sentence works), never written into
       a file, and never typed into a chat. It can't be recovered: a lost one means a new key.
-- [ ] Before emailing anything from an outbox: `holdco outbox verify`. A failure is an incident
-      (runbook 06).
+- [ ] Before emailing anything from an outbox: `holdco outbox verify`. Each person verifies what
+      they released (keys are personal); an item that names anyone who isn't an approver or owner
+      fails for everyone. A failure is an incident (runbook 06).
+- [ ] Before replacing a key (`keys add --rotate`, or a new key after a lost passphrase), verify
+      the outbox and release anything approved but unsent: afterwards, your earlier approvals and
+      releases can't be checked with the new key, and unsent approvals must be approved again.
 - [ ] Changes to the guard itself (`.claude/hooks/`, `.claude/settings*.json`, `holdco/guard.py`,
       `holdco/keys.py`) only in a session a person started with `HOLDCO_DEV=1`, and reviewed like
       any security change.

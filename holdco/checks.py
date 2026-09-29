@@ -21,6 +21,8 @@ from holdco.util import money, read_csv, read_json
 SEVERITY_COST = {"blocker": 40, "major": 10, "minor": 3}
 ACCOUNT_NUMBER = re.compile(r"(?<![\d*.,$])\d{8,17}(?![\d.,])")
 SSN = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
+EIN = re.compile(r"(?<![\d-])\d{2}-\d{7}(?![\d-])")
+CARD = re.compile(r"(?<![\d-])\d{4}(?:[ -]\d{4}){3}(?![\d-])|(?<![\d-])\d{4}[ -]\d{6}[ -]\d{5}(?![\d-])")
 
 
 @dataclass
@@ -220,7 +222,7 @@ def check_no_phrases(rule: Rule, ctx: CheckContext) -> list[dict]:
 
 def check_mask_numbers(rule: Rule, ctx: CheckContext) -> list[dict]:
     text = ctx.message_text()
-    hits = SSN.findall(text) + ACCOUNT_NUMBER.findall(text)
+    hits = SSN.findall(text) + EIN.findall(text) + CARD.findall(text) + ACCOUNT_NUMBER.findall(text)
     return [finding(rule, "blocker", "client_message", f"Unmasked number '{hit}' in the client message.",
                     "Show only the last 4 digits, e.g. ****1234.") for hit in hits]
 

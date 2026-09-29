@@ -88,6 +88,10 @@ class Metrics(WorkspaceCase):
         text = metrics.format_report(metrics.business_metrics(self.biz, as_of=parse_date("2026-09-28")))
         self.assertIn("Human minutes per job .... n/a", text)
 
+    def test_margin_stops_at_the_as_of_month(self):
+        margin = metrics.business_metrics(self.biz, as_of=parse_date("2026-06-30"))["margin"]
+        self.assertEqual((margin["latest"]["month"], margin["prior"]["month"]), ("2026-06", "2026-05"))
+
 
 class Deals(unittest.TestCase):
     def setUp(self):
@@ -138,6 +142,13 @@ class Deals(unittest.TestCase):
         box = {**self.buy_box, "billing_models_ok": ["fixed_fee", "hourly"]}
         hourly = deals.score_deal({**self.deal, "billing_model": "hourly"}, box)
         self.assertTrue(next(c for c in hourly["checks"] if c["criterion"].startswith("Billing"))["ok"])
+
+    def test_tax_preparer_credentials_are_workable_licensing(self):
+        for licensing, workable in (("efin", True), ("ptin", True), ("cpa-attest", False)):
+            report = deals.score_deal({**self.deal, "industry": "tax-prep", "licensing": licensing}, self.buy_box)
+            check = next(c for c in report["checks"] if c["criterion"].startswith("Licensing"))
+            self.assertEqual(check["ok"], workable, licensing)
+            self.assertEqual(report["verdict"] == "WALK AWAY", not workable, licensing)
 
     def test_rollover_is_flagged_as_unavailable_in_a_control_acquisition(self):
         deal = {**self.deal, "structure": {**self.deal["structure"], "rollover_pct": 0.2}}

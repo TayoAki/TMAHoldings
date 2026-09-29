@@ -67,8 +67,10 @@ def _shadow_stats(biz: Business, start: dt.date, end: dt.date) -> dict:
             if shadowed else None}
 
 
-def _margin(biz: Business) -> dict:
-    rows = sorted(read_csv(biz.financials_csv), key=lambda r: r["month"])
+def _margin(biz: Business, as_of: dt.date) -> dict:
+    """Monthly margin up to the as-of month (a report for June must not show August)."""
+    rows = sorted((r for r in read_csv(biz.financials_csv) if r["month"] <= as_of.strftime("%Y-%m")),
+                  key=lambda r: r["month"])
     series = []
     for row in rows:
         revenue, costs = float(row["revenue"]), float(row["costs"])
@@ -118,7 +120,7 @@ def business_metrics(biz: Business, as_of: dt.date | None = None, window_days: i
     previous = _window_stats(biz, as_of - dt.timedelta(days=2 * window_days - 1),
                              as_of - dt.timedelta(days=window_days))
     shadow = _shadow_stats(biz, as_of - dt.timedelta(days=window_days - 1), as_of)
-    margin = _margin(biz)
+    margin = _margin(biz, as_of)
     retention = _retention(biz, as_of, retention_days)
     people = _people(biz)
     alerts = []

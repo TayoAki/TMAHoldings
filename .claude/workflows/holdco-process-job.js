@@ -176,11 +176,14 @@ Workspace root: ${ROOT}. Business: ${j.business}. Job: ${j.job}. Job folder: ${j
 You cannot edit the draft. If a person must decide something, return verdict NEEDS_HUMAN with a "question"
 (and "question_key", e.g. the transaction id). Return the review JSON from your job description.`
 
+// Named after the job's event count when the run started, so a later run never overwrites an earlier record.
+const runFile = (j, n) => `${jobDir(j)}/work/run-e${j.events || 0}-${n}.json`
+
 const clerkPrompt = (j, payload, n) => `You are the CLERK for TMA Holdings. Do exactly this and nothing else.
-1. Write this JSON exactly (valid JSON, same content) to the file ${jobDir(j)}/work/run-${n}.json:
+1. Write this JSON exactly (valid JSON, same content) to the file ${runFile(j, n)}:
 ${JSON.stringify(payload, null, 2)}
 2. Run this command and capture its output and exit code:
-${cli(`record-run ${j.business} ${j.job} --file ${jobDir(j)}/work/run-${n}.json --json`)}
+${cli(`record-run ${j.business} ${j.job} --file ${runFile(j, n)} --json`)}
 3. Return JSON: {"ok": <exit code was 0>, "state": <"state" from the command's JSON output>,
    "last_review_verdict": <last_review.verdict or "">, "findings": <last_review.findings or []>,
    "open_question": <open_question or "">, "output": <the full command output, or the error text>}.`

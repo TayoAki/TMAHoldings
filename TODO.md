@@ -83,9 +83,17 @@ Tick items off here and add a dated line to "Decisions" at every gate.
 - [ ] **Claude** — A Monday dashboard page that reads `holdco metrics --json`.
 - [ ] **Claude** — CI: run the test suite on every push (GitHub Actions).
 - [ ] **You** — Encrypted, backed-up storage for real business folders (they never go in git).
-- [ ] **You** — Before real client data: run agents as a separate OS user (or container) with no
-      write access to business state and no access to `~/.holdco` (runbook 09). The repo's guard
-      is layered, but it all runs under your account until you do this.
+- [ ] **You** — Before real client data: run agents as a separate OS user in a shared group, with
+      write access only to each business's `jobs/` and `proposals/` and no access to `~/.holdco`
+      (runbook 09 has the commands). The repo's guard is layered, but it all runs under your
+      account until you do this.
+- [ ] **You + Claude, in a session you start with `HOLDCO_DEV=1`** — The guard fixes this session
+      couldn't make (the guard refuses changes to itself otherwise): close the hook bypasses from the
+      final verification (Python or git writing the hook or `~/.claude/settings.json`, `rules/keys/outbox
+      --root X <sub>` forms, globs, `find -exec`, `sort -o`, `grep -r` over the home folder), stop
+      `holdco job export --to` from overwriting files (it is auto-allowed for agents), keep retired
+      keys so older releases still verify after a rotation, and add a CLI-level test of the
+      `keys add` / `approve --send` / `outbox verify` prompts.
 - [ ] **You** — Upload the skill to claude.ai: run `python3 scripts/package_skill.py`, then upload
       `dist/ai-rollup-holdco.skill` under Settings → Capabilities → Skills.
 

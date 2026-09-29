@@ -16,7 +16,7 @@ lawyer, a CPA and an SBA lender confirm anything you rely on.*
 - **The operating model is the valuable part, and it's right:** a shared layer of agents and rules,
   a GM with real upside, a person approving everything before it reaches a client, and a
   corrections log turned into rules every week. This repo implements all of it and tests the
-  mechanics: a runnable demo (22/22 proofs), 137 tests, and one end-to-end run with real Claude
+  mechanics: a runnable demo (22/22 proofs), 146 tests, and one end-to-end run with real Claude
   agents (`docs/evidence/`). None of that measures accuracy on real client work; shadow mode does.
 - **The margin claim needs arithmetic.** If agents take over 31% of labor hours (the pilot's
   self-reported saving, assumed here to carry over to bookkeeping), a 10%-margin firm lands at about
@@ -41,7 +41,7 @@ lawyer, a CPA and an SBA lender confirm anything you rely on.*
 | 10:11 | The small-deal gap | Funds skip $2M firms; most sellers are small | Supported: nearly 80% of the projected exits are businesses worth under $2M. |
 | 10:54 | One-person holdco | You on top, a GM with upside at each business, a shared layer underneath | The core model. The GM matters more than the agents (Greg says so too). |
 | 14:28 | Folder structure | Thesis; shared (agents, global rules, test examples, runbooks); per-business clients, people, rules, corrections log | Implemented here almost exactly (see the map in `README.md`). |
-| 16:54 | Agent pipeline | Intake → preparer → reviewer → person → client. The reviewer can block, never send | Implemented and enforced in code, three ways. |
+| 16:54 | Agent pipeline | Intake → preparer → reviewer → person → client. The reviewer can block, never send | Implemented and enforced in code, in layers (see "What to take from it", point 2). |
 | 18:38 | Reviewer file | Plain-English job description: job, can, can't, checks, when to stop and ask | `shared/agents/*.md`. |
 | 19:43 | The week | Monday numbers, Tuesday GM calls, Wednesday corrections, Thursday–Friday deals | `holdco metrics`, runbooks 04–05, the deal screen. |
 | 21:49 | First business | Sell a service to firms first; after 6–12 months an owner will be ready | Runbook 10, wired to your demand-first skills. |

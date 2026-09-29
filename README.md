@@ -48,8 +48,9 @@ approves everything**, is enforced in code, in layers, not by asking agents nice
    the caller claims.
 2. **Approvals are signed.** Approving and sending need the approver's passphrase. Each approval and
    each release is signed with a key derived from it, so `send` refuses an approval nobody signed, and
-   `holdco outbox verify` flags anything in the outbox that was edited, added or never released. Run
-   it before you email anything.
+   `holdco outbox verify` flags anything you released that was edited or added to afterwards, and any
+   item that wasn't released by one of the business's approvers or owners. Keys are personal, so each
+   person verifies what they released. Run it before you email anything.
 3. **A Claude Code hook** (`.claude/hooks/human_only_guard.py`) blocks human-only commands, attempts to
    switch off the agent markers, and writes to job state, inputs, outboxes, logs, golden cases and the
    key store before a tool call runs. The holdco agents get allow-lists: drafts in a job's `work/`
@@ -63,8 +64,9 @@ asked about) blocks a draft even if the reviewer agent passed it.
 
 What this does not stop: a program running under your own OS account that is determined to cheat can
 rewrite code and files. It still can't sign as you without your passphrase, and `outbox verify`
-catches what it leaves behind. For real client data, run agents as a separate OS user with no access
-to `businesses/` state or `~/.holdco` (runbook 09).
+catches what it leaves in the outbox. For real client data, run agents as a separate OS user that
+can write only the `jobs/` and `proposals/` folders (where they record work through the CLI) and
+can't touch the outbox, golden cases, logs, `business.json` or `~/.holdco` (runbook 09 shows how).
 
 ## The folder structure is the org chart
 

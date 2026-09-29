@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import stat
+import unittest
 from unittest import mock
 
 from holdco import golden, guard, jobs, keys
@@ -20,6 +21,19 @@ class Keys(WorkspaceCase):
         self.assertNotIn(PASS, path.read_text())
         if os.name == "posix":
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+
+    @unittest.skipUnless(os.name == "posix", "file modes are POSIX")
+    def test_state_files_follow_the_umask_and_keep_their_mode(self):
+        path = self.tmp / "probe.json"
+        previous = os.umask(0o007)
+        try:
+            write_json(path, {"a": 1})
+        finally:
+            os.umask(previous)
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o660)  # the group can share it; others can't
+        os.chmod(path, 0o640)
+        write_json(path, {"a": 2})
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o640)  # a mode someone set is kept
 
     def test_short_passphrases_and_silent_replacement_are_refused(self):
         with self.assertRaisesRegex(HoldcoError, "at least"):
@@ -87,6 +101,14 @@ class SignedApprovals(WorkspaceCase):
         with self.assertRaisesRegex(HoldcoError, "releases it"):
             jobs.send(self.biz, job["id"], OWNER, HUMAN, passphrase=OWNER_PASS)
 
+    def test_an_approval_made_before_a_key_change_is_approved_again(self):
+        job = self.to_approval()
+        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS)
+        keys.add_key(self.biz, DANA, "a brand new passphrase", HUMAN, old_passphrase=PASS)
+        with self.assertRaisesRegex(HoldcoError, "replaced your key"):
+            jobs.send(self.biz, job["id"], DANA, HUMAN, passphrase="a brand new passphrase")
+        self.assertEqual(self.job(job["id"])["state"], jobs.APPROVED)
+
     def test_an_existing_outbox_folder_is_never_overwritten(self):
         job = self.to_approval()
         jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS)
@@ -141,6 +163,27 @@ class OutboxVerify(WorkspaceCase):
         self._released()
         with self.assertRaisesRegex(HoldcoError, "Wrong passphrase"):
             jobs.verify_outbox(self.biz, DANA, HUMAN, "not the passphrase")
+
+    def test_an_item_naming_a_sender_outside_the_business_fails(self):
+        job = self._released()
+        path = self.biz.outbox_dir / job["id"] / "manifest.json"
+        write_json(path, dict(read_json(path), sent_by="Someone Else"))
+        result = self._results()[job["id"]]
+        self.assertFalse(result["ok"])
+        self.assertIn("not an approver or owner", result["problems"][0])
+
+    def test_items_released_by_another_approver_are_theirs_to_verify(self):
+        keys.add_key(self.biz, OWNER, OWNER_PASS, HUMAN)
+        mine = self._released()
+        theirs = self.to_approval()
+        jobs.approve(self.ws, self.biz, theirs["id"], OWNER, HUMAN, passphrase=OWNER_PASS)
+        jobs.send(self.biz, theirs["id"], OWNER, HUMAN, passphrase=OWNER_PASS)
+        as_dana = self._results()
+        self.assertTrue(as_dana[mine["id"]]["ok"])
+        self.assertIsNone(as_dana[theirs["id"]]["ok"])
+        self.assertEqual(as_dana[theirs["id"]]["sender"], OWNER)
+        as_owner = {r["item"]: r for r in jobs.verify_outbox(self.biz, OWNER, HUMAN, OWNER_PASS)}
+        self.assertTrue(as_owner[theirs["id"]]["ok"])
 
 
 class RealEnvironment(WorkspaceCase):
@@ -237,6 +280,22 @@ class Evidence(WorkspaceCase):
         self.assertNotEqual(result["job"]["state"], jobs.AWAITING_APPROVAL)
         findings = [f for r in result["job"]["reviews"] for f in r["findings"]]
         self.assertTrue(any(f["rule"] == "BK-012" for f in findings))
+
+    def test_card_numbers_and_eins_in_a_message_are_blocked(self):
+        job = self.new_job()
+        jobs.record_intake(self.ws, self.biz, job["id"], {"status": "complete"})
+        draft = self.runner().prepare("monthly-close", "acme", self.inbox / "2026-08-acme", "2026-08", [], {})
+        body = draft["client_message"]["body_markdown"]
+        for leak in ("Your EIN 12-3456789 is on file.", "Card 4111 1111 1111 1111 was charged.",
+                     "Card 4111-1111-1111-1111 was charged.", "Amex 3782 822463 10005 was charged."):
+            with self.subTest(leak=leak):
+                job = self.new_job()
+                jobs.record_intake(self.ws, self.biz, job["id"], {"status": "complete"})
+                jobs.record_draft(self.ws, self.biz, job["id"],
+                                  set_path(draft, "client_message.body_markdown", body + "\n" + leak))
+                job = jobs.record_review(self.ws, self.biz, job["id"], {"verdict": "PASS", "score": 100})
+                self.assertEqual(job["state"], jobs.BLOCKED)
+                self.assertTrue(any(f["rule"] == "G-004" for f in job["reviews"][-1]["findings"]))
 
     def test_a_pass_without_a_score_gets_the_machine_score(self):
         job = self.new_job()

@@ -12,8 +12,8 @@ cap it, whatever the agents do.
 
 ## How to check
 - Diligence interview (runbook 08) plus the seller's honest read.
-- The 30-day shadow period is a real trial: are they logging corrections, clearing the queue,
-  and raising problems early?
+- Shadow mode is a real trial: are they logging every difference, clearing the queue, and
+  raising problems early?
 
 ## The deal (confirm structure and tax treatment with counsel and a CPA)
 - **Base:** a real raise on day one. They are taking on more.

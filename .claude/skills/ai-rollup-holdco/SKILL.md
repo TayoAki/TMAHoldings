@@ -48,7 +48,7 @@ check `thesis/THESIS.md`. Ask only for what those don't answer.
 | Phase | You're here if | Do | Use | Leave when |
 |---|---|---|---|---|
 | 0 Foundation | no industry or thesis chosen | pick the industry, fill in the thesis and buy box, line up a lawyer, CPA and SBA lender | `thesis/THESIS.md`, `niche-validator` skill | thesis + buy box signed off |
-| 1 Wedge service | no paying firms yet | sell one annoying job, done with agents, to firms in the industry | runbook 10; `offer-architect`, `icp-canvas`, `lead-source-planner`, `demand-first-os` | gates W1–W4: 3 paying firms, drafts needing fixes under 20% for 8 weeks, 2+ owners talking succession, a lender-confirmed financing plan |
+| 1 Wedge service | no paying firms yet | sell one annoying job, done with agents, to firms in the industry | runbook 10; `offer-architect`, `icp-canvas`, `lead-source-planner`, `demand-first-os` | gates W1–W4: 3 paying firms, drafts needing fixes under 20% for 8 weeks, 2+ owners talking succession, deal ready (lender-confirmed financing plan, final buy box, one target screened) |
 | 2 Deal flow | owners are open to selling | source and screen; price on today's earnings | runbook 08, `holdco deal score`, the deal-screen workflow, `clear-thinking-os` | LOI signed |
 | 3 Close | LOI signed | diligence, financing, GM agreement, security | runbooks 08, 09, 11 | closed |
 | 4 Shadow mode | just closed | day one, then shadow mode | runbooks 01, 02 | graduation report ready and the GM agrees |
@@ -69,6 +69,8 @@ The full step-by-step guide, with exit criteria and how each step was proven, is
 3. Report `python3 -m holdco queue`, and for each job give the person the exact next commands:
    `job show`, then `approve ... --by "<name>" --minutes <n> --send` (it asks for their
    passphrase), then `outbox verify <business> --by "<name>"` before they email anything.
+   A job type still in shadow mode shows as SHADOW, not APPROVE: there the person does the job
+   the usual way and records it with `shadow ... --by "<name>" --minutes <n>` (runbook 02).
    No workflow runtime? Use the Agent tool with `holdco-intake`, `holdco-preparer` and
    `holdco-reviewer` in that order, and record each step with `python3 -m holdco record-run`.
 

@@ -104,6 +104,15 @@ class Shadow(WorkspaceCase):
         self.assertEqual(report["shadow_jobs"], 0)
         self.assertFalse(report["ready"])
 
+    def test_a_higher_bar_than_the_window_can_still_be_met(self):
+        self.set_config(rollout={"monthly-close": "shadow"}, graduation={"min_jobs": 3})
+        for period, when in (("2026-06", "2026-07-03T09:00:00"), ("2026-07", "2026-08-04T09:00:00"),
+                             ("2026-08", "2026-09-02T09:00:00")):
+            self._shadow_job(period, when, {}, minutes=40)
+        report = rollout.graduation_report(self.biz, "monthly-close", last=2)
+        self.assertEqual(report["shadow_jobs"], 3)
+        self.assertTrue(report["ready"], report["blocking"])
+
     def test_the_holdco_owner_can_make_the_rollout_call(self):
         entry = rollout.set_rollout(self.biz, "monthly-close", "assisted", OWNER, HUMAN, "GM agrees")
         self.assertEqual(entry["by"], OWNER)

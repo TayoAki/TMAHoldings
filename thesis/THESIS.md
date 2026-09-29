@@ -80,6 +80,7 @@ one new business per 8 stable Mondays across the portfolio.
 | Clients | at least 100 | no single relationship carries the firm |
 | Price / SDE | at most 3.0x | bookkeeping sells for about 2.5–3.3x SDE, accounting and tax about 2.3x |
 | Price / revenue | 1.1x bookkeeping, 1.2x tax | small-practice norms of 1.0–1.3x |
+| Licensing | none, or credentials we can get ourselves (PTINs, a new EFIN) | attest work needs CPA majority ownership; see `_licensing_note` in the buy box |
 | Debt coverage on today's earnings | at least 1.25x | the SBA minimum; we test it on today's numbers, not the plan |
 | Recurring revenue | at least 60% | predictability through the transition |
 | Top client | at most 15% | one departure can't sink the loan |
