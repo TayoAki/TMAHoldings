@@ -25,8 +25,9 @@ from collections import Counter, defaultdict
 
 from holdco.config import Business, HoldcoError, Workspace
 from holdco.guard import ExecutionContext, require_human
-from holdco.rules import RuleSet, append_rule, next_rule_id, render_rule
-from holdco.util import append_jsonl, now, now_iso, parse_date, read_csv, read_json, read_jsonl, write_json
+from holdco.rules import KNOWN_CHECK_TYPES, RuleSet, append_rule, next_rule_id, parse_rules, render_rule
+from holdco.util import (append_jsonl, next_id, now, now_iso, parse_date, read_csv, read_json, read_jsonl,
+                         write_json)
 
 CATEGORIES = ("factual_error", "client_preference", "missing_information", "style")
 CATEGORY_KEYS = {"f": "factual_error", "c": "client_preference", "m": "missing_information", "s": "style"}
@@ -44,7 +45,7 @@ def require_category(category: str | None) -> str:
 
 def log_correction(biz: Business, record: dict) -> dict:
     existing = read_jsonl(biz.corrections_log)
-    entry = {"id": f"C-{len(existing) + 1:04d}", "at": now_iso(), "business": biz.slug, **record}
+    entry = {"id": next_id("C", (e["id"] for e in existing)), "at": now_iso(), "business": biz.slug, **record}
     entry["category"] = require_category(entry.get("category"))
     append_jsonl(biz.corrections_log, entry)
     return entry
@@ -193,7 +194,7 @@ def review(ws: Workspace, biz: Business, as_of: dt.date | None = None, days: int
         "new_proposals": [], "already_proposed": [], "rule_not_followed": [], "watch": [],
         "free_text": [e for e in this_week if signature(e) is None],
     }
-    next_number = len(list_proposals(biz)) + 1
+    taken = [p["id"] for p in list_proposals(biz)]
     for sig in sorted(fresh_sigs, key=str):
         entries = groups[sig]
         jobs = sorted({e["job"] for e in entries})
@@ -210,13 +211,13 @@ def review(ws: Workspace, biz: Business, as_of: dt.date | None = None, days: int
                                                           "fix the agent file or the rule wording, then run eval."})
             continue
         proposal = {
-            "id": f"P-{next_number:04d}", "status": "proposed", "created_at": now_iso(), "signature": list(sig),
+            "id": next_id("P", taken), "status": "proposed", "created_at": now_iso(), "signature": list(sig),
             "kind": sig[0], "job_type": sig[1], "client": sig[2] if sig[0] != "text" else None,
             **_draft_rule(biz, sig, entries),
             "evidence": [e["id"] for e in entries], "evidence_jobs": jobs,
             "categories": dict(Counter(e["category"] for e in entries)),
         }
-        next_number += 1
+        taken.append(proposal["id"])
         if write:
             write_json(biz.proposals_dir / f"{proposal['id']}.json", proposal)
         report["new_proposals"].append(proposal)
@@ -229,31 +230,34 @@ def create_proposal(ws: Workspace, biz: Business, draft: dict, source: str = "ru
     Agents may propose; only a person can accept (``rules accept``).
     """
     from holdco import jobs  # local import: jobs depends on this module
-    from holdco.checks import CHECKS, NON_REVIEW_CHECKS
 
     missing = [k for k in ("title", "applies_to", "scope", "rule_text", "why") if not str(draft.get(k, "")).strip()]
     if missing:
         raise HoldcoError(f"Proposal is missing: {', '.join(missing)}.")
     check = draft.get("check")
-    known_checks = set(CHECKS) | NON_REVIEW_CHECKS
-    if check is not None and (not isinstance(check, dict) or check.get("type") not in known_checks):
-        raise HoldcoError(f"Unknown check {check!r}. Use null or one of: {', '.join(sorted(known_checks))}.")
+    if check is not None and (not isinstance(check, dict) or check.get("type") not in KNOWN_CHECK_TYPES):
+        raise HoldcoError(f"Unknown check {check!r}. Use null or one of: {', '.join(sorted(KNOWN_CHECK_TYPES))}.")
     log = read_jsonl(biz.corrections_log)
     evidence = list(draft.get("evidence") or [])
-    unknown = [e for e in evidence if e not in {entry["id"] for entry in log}]
+    by_id = {entry["id"]: entry for entry in log}
+    unknown = [e for e in evidence if e not in by_id]
     if unknown or not evidence:
         raise HoldcoError(f"Evidence must cite logged corrections (unknown or none: {unknown or 'none given'}).")
+    if len({by_id[e]["job"] for e in evidence}) < 2:
+        raise HoldcoError("A rule needs the same fix in at least two separate jobs. Once is an anecdote: "
+                          "list a single factual error as an agent-file fix instead.")
     evidence_jobs = list(draft.get("golden_candidates") or draft.get("evidence_jobs") or [])
     for job_id in evidence_jobs:
-        if not jobs.load_job(biz, job_id).get("approval"):
-            raise HoldcoError(f"{job_id} was never approved, so it cannot become a golden case.")
+        job = jobs.load_job(biz, job_id)
+        if job.get("eval_case") or not (job.get("approval") or job.get("shadow")):
+            raise HoldcoError(f"{job_id} was never approved or shadow-compared, so it cannot become a golden case.")
     existing = list_proposals(biz)
     title = draft["title"].strip()
     if any(p["title"].lower() == title.lower() and p["status"] == "proposed" for p in existing):
         raise HoldcoError(f"An open proposal titled {title!r} already exists.")
     scope = draft["scope"].strip()
     proposal = {
-        "id": f"P-{len(existing) + 1:04d}", "status": "proposed", "created_at": now_iso(),
+        "id": next_id("P", (p["id"] for p in existing)), "status": "proposed", "created_at": now_iso(),
         "signature": ["curated", title.lower()], "kind": "curated", "source": source,
         "job_type": draft["applies_to"].strip(), "client": scope.split(":", 1)[1] if scope.startswith("client:") else None,
         "title": title, "rule_text": draft["rule_text"].strip(), "scope": scope,
@@ -279,6 +283,9 @@ def accept_proposal(ws: Workspace, biz: Business, proposal_id: str, by: str, ctx
         raise HoldcoError(f"{proposal_id} is already {proposal['status']}.")
     if proposal.get("check") is None and not rule_text and "Reword" in proposal["rule_text"]:
         raise HoldcoError(f"{proposal_id} needs plain-English wording first: pass --text \"...\".")
+    # Check everything before writing anything, so a failure never leaves a half-accepted rule.
+    for job_id in proposal["evidence_jobs"]:
+        golden.accepted_output(biz, job_id)
     rule_id = next_rule_id(biz)
     fields = {
         "Applies to": proposal["applies_to"], "Scope": proposal["scope"],
@@ -286,8 +293,10 @@ def accept_proposal(ws: Workspace, biz: Business, proposal_id: str, by: str, ctx
         "Source": f"weekly corrections review, proposal {proposal_id}",
         "Added": f"{now_iso()[:10]} by {by}",
     }
-    append_rule(biz, render_rule(rule_id, title or proposal["title"], fields, proposal.get("check")))
-    RuleSet.for_business(ws, biz)  # fail loudly now if the new rule does not parse
+    markdown = render_rule(rule_id, title or proposal["title"], fields, proposal.get("check"))
+    parse_rules(markdown, "business", str(biz.rules_file))
+    append_rule(biz, markdown)
+    RuleSet.for_business(ws, biz)  # the whole rule set still loads with the new rule in it
     cases = [golden.create_case_from_job(ws, biz, job_id, [rule_id]) for job_id in proposal["evidence_jobs"]]
     proposal.update(status="accepted", rule_id=rule_id, golden_cases=cases, decided_by=by, decided_at=now_iso())
     write_json(path, proposal)

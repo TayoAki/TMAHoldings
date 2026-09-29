@@ -10,7 +10,7 @@ from holdco.config import HoldcoError
 from holdco.diffing import set_path
 from holdco.guard import ExecutionContext, HumanOnlyError
 from holdco.util import read_json, write_json
-from tests.helpers import AGENT, DANA, HUMAN, SCRIPT, WorkspaceCase
+from tests.helpers import AGENT, DANA, HUMAN, PASS, SCRIPT, WorkspaceCase
 
 AGENT_ROLES = ("intake", "preparer", "reviewer", "system")
 
@@ -54,17 +54,17 @@ class Pipeline(WorkspaceCase):
     def test_send_requires_approval(self):
         job = self.to_approval()
         with self.assertRaises(HoldcoError):
-            jobs.send(self.biz, job["id"], DANA, HUMAN)
+            jobs.send(self.biz, job["id"], DANA, HUMAN, passphrase=PASS)
 
     def test_approve_and_send_refuse_agent_and_non_interactive_contexts(self):
         job = self.to_approval()
         for ctx in (AGENT, SCRIPT, ExecutionContext(interactive=True, agent=True)):
             with self.assertRaises(HumanOnlyError):
                 jobs.approve(self.ws, self.biz, job["id"], DANA, ctx)
-        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, minutes=3)
+        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS, minutes=3)
         with self.assertRaises(HumanOnlyError):
             jobs.send(self.biz, job["id"], DANA, AGENT)
-        sent = jobs.send(self.biz, job["id"], DANA, HUMAN)
+        sent = jobs.send(self.biz, job["id"], DANA, HUMAN, passphrase=PASS)
         self.assertEqual(sent["state"], jobs.SENT)
         manifest = read_json(self.biz.outbox_dir / job["id"] / "manifest.json")
         self.assertEqual(manifest["approved_by"], DANA)
@@ -85,12 +85,12 @@ class Pipeline(WorkspaceCase):
 
     def test_tampering_after_approval_blocks_the_send(self):
         job = self.to_approval()
-        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN)
+        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS)
         path = jobs.job_dir(self.biz, job["id"]) / "approved.json"
         approved = read_json(path)
         write_json(path, set_path(approved, "client_message.subject", "Changed after approval"))
         with self.assertRaises(HoldcoError):
-            jobs.send(self.biz, job["id"], DANA, HUMAN)
+            jobs.send(self.biz, job["id"], DANA, HUMAN, passphrase=PASS)
         self.assertEqual(self.job(job["id"])["state"], jobs.APPROVED)
         self.assertFalse((self.biz.outbox_dir / job["id"]).exists())
 
@@ -134,8 +134,8 @@ class Pipeline(WorkspaceCase):
         draft = jobs.latest_draft(self.biz, job)
         broken = set_path(draft, "data.transactions[T-0801].amount", 4000.0)
         with self.assertRaises(HoldcoError):
-            jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, final=broken, default_reason="factual_error")
-        job = jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, final=broken, default_reason="factual_error",
+            jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS, final=broken, default_reason="factual_error")
+        job = jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS, final=broken, default_reason="factual_error",
                            override_checks="Bank confirmed a reversal posting on the 3rd")
         self.assertEqual(job["approval"]["overrode_checks"]["reason"], "Bank confirmed a reversal posting on the 3rd")
 
@@ -143,7 +143,7 @@ class Pipeline(WorkspaceCase):
         job = self.to_approval()
         draft = jobs.latest_draft(self.biz, job)
         final = set_path(draft, "data.transactions[T-0803].category", "Vehicle")
-        job = jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, final=final, default_reason="client_preference")
+        job = jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS, final=final, default_reason="client_preference")
         logged = corrections.load_corrections(self.biz)
         self.assertEqual(len(logged), 1)
         self.assertEqual(logged[0]["path"], "data.transactions[T-0803].category")
@@ -154,9 +154,9 @@ class Pipeline(WorkspaceCase):
         job = self.to_approval()
         final = set_path(jobs.latest_draft(self.biz, job), "data.transactions[T-0803].category", "Vehicle")
         with self.assertRaises(HoldcoError):
-            jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, final=final)
+            jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS, final=final)
         with self.assertRaises(HoldcoError):
-            jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, final=final, default_reason="because")
+            jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS, final=final, default_reason="because")
 
     def test_send_back_returns_work_to_the_preparer_and_logs_it(self):
         job = self.to_approval()
@@ -223,8 +223,8 @@ class Pipeline(WorkspaceCase):
 
     def test_job_json_history_is_an_audit_trail(self):
         job = self.to_approval()
-        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN)
-        job = jobs.send(self.biz, job["id"], DANA, HUMAN)
+        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS)
+        job = jobs.send(self.biz, job["id"], DANA, HUMAN, passphrase=PASS)
         actors = [h["actor"].split(":")[0] for h in job["history"]]
         self.assertEqual(actors, ["system", "intake", "preparer", "reviewer", "human", "human"])
         self.assertTrue(json.dumps(job))

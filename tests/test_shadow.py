@@ -1,4 +1,4 @@
-"""Shadow mode: the first 30 days change nothing a client can see."""
+"""Shadow mode: until a job type graduates, nothing agents draft can reach a client."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from holdco.config import HoldcoError
 from holdco.diffing import set_path
 from holdco.guard import HumanOnlyError
 from holdco.util import freeze_clock, parse_date, read_json
-from tests.helpers import AGENT, DANA, HUMAN, WorkspaceCase
+from tests.helpers import AGENT, DANA, HUMAN, OWNER, PASS, WorkspaceCase
 
 
 class Shadow(WorkspaceCase):
@@ -33,7 +33,7 @@ class Shadow(WorkspaceCase):
     def test_shadow_drafts_can_never_be_approved_or_sent(self):
         job = self.to_approval()
         with self.assertRaises(HoldcoError) as ctx:
-            jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN)
+            jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS)
         self.assertIn("shadow mode", str(ctx.exception))
         self.assertEqual(self.job(job["id"])["state"], jobs.AWAITING_APPROVAL)
 
@@ -80,3 +80,32 @@ class Shadow(WorkspaceCase):
         report = metrics.business_metrics(self.biz, as_of=parse_date("2026-09-28"))
         self.assertEqual(report["shadow"]["manual_minutes_per_job"], 48)
         self.assertIn("manual baseline 48", metrics.format_report(report))
+
+    def test_a_rule_from_shadow_differences_is_tested_against_the_persons_version(self):
+        self._shadow_job("2026-06", "2026-07-03T09:00:00",
+                         {"data.transactions[T-0602].category": "Materials (COGS)"}, minutes=55)
+        self._shadow_job("2026-07", "2026-08-04T09:00:00",
+                         {"data.transactions[T-0702].category": "Materials (COGS)"}, minutes=50)
+        proposal = corrections.review(self.ws, self.biz, as_of=parse_date("2026-08-05"))["new_proposals"][0]
+        accepted = corrections.accept_proposal(self.ws, self.biz, proposal["id"], DANA, HUMAN)
+        self.assertEqual(len(accepted["golden_cases"]), 2)
+        expected = read_json(self.biz.golden_dir / accepted["golden_cases"][0] / "expected.json")
+        categories = {t["id"]: t["category"] for t in expected["data"]["transactions"]}
+        self.assertEqual(categories["T-0602"], "Materials (COGS)")
+
+    def test_graduation_starts_over_after_a_rollback(self):
+        self._shadow_job("2026-08", "2026-09-02T09:00:00", {}, minutes=48)
+        self.assertTrue(rollout.graduation_report(self.biz, "monthly-close", criteria={"min_jobs": 1})["ready"])
+        freeze_clock("2026-09-10T09:00:00")
+        rollout.set_rollout(self.biz, "monthly-close", "assisted", DANA, HUMAN, "Report ready; GM agrees")
+        freeze_clock("2026-09-20T09:00:00")
+        rollout.set_rollout(self.biz, "monthly-close", "shadow", DANA, HUMAN, "Incident: wrong totals sent")
+        report = rollout.graduation_report(self.biz, "monthly-close", criteria={"min_jobs": 1})
+        self.assertEqual(report["shadow_jobs"], 0)
+        self.assertFalse(report["ready"])
+
+    def test_the_holdco_owner_can_make_the_rollout_call(self):
+        entry = rollout.set_rollout(self.biz, "monthly-close", "assisted", OWNER, HUMAN, "GM agrees")
+        self.assertEqual(entry["by"], OWNER)
+        with self.assertRaises(HumanOnlyError):
+            rollout.set_rollout(self.biz, "monthly-close", "shadow", "Someone Else", HUMAN, "no")

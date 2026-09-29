@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import unittest
 
-from holdco import deals, metrics
+from holdco import deals, jobs, metrics
 from holdco.config import HoldcoError
-from holdco.rules import parse_rules, render_rule
-from holdco.util import parse_date, read_json
-from tests.helpers import REPO, WorkspaceCase
+from holdco.rules import RuleSet, parse_rules, render_rule
+from holdco.util import next_id, parse_date, read_json
+from tests.helpers import DANA, HUMAN, PASS, REPO, WorkspaceCase
 
 RULES = """# Rules
 ## R-X-001 · First
@@ -48,6 +48,14 @@ class Rules(unittest.TestCase):
         with self.assertRaises(HoldcoError):
             parse_rules("## R-X-001 · A\n- **Rule:** a\n## R-X-001 · B\n- **Rule:** b\n", "business")
 
+    def test_unknown_check_types_fail_loudly(self):
+        with self.assertRaisesRegex(HoldcoError, "unknown check type"):
+            parse_rules('## R-X-001 · A\n- **Check:** `{"type": "vendor_categroy"}`\n', "business")
+
+    def test_ids_never_reuse_a_deleted_number(self):
+        self.assertEqual(next_id("G", ["G-0001", "G-0003"]), "G-0004")
+        self.assertEqual(next_id("P", []), "P-0001")
+
     def test_repo_rule_files_parse(self):
         for path in [REPO / "shared/rules/global-rules.md", *sorted((REPO / "shared/rules/industries").glob("*.md")),
                      REPO / "businesses/demo-bookkeeping/rules.md"]:
@@ -64,6 +72,17 @@ class Metrics(WorkspaceCase):
         self.assertEqual(at_risk, ["Ravi Patel"])
         self.assertTrue(any("while clients left" in a for a in report["alerts"]))
         self.assertAlmostEqual(report["margin"]["latest"]["margin"], (40900 - 35210) / 40900)
+
+    def test_a_send_back_counts_as_a_draft_that_needed_fixing(self):
+        job = self.to_approval()
+        jobs.send_back(self.biz, job["id"], DANA, HUMAN, "Say which receipts you still need", "style")
+        self.assertEqual(self.runner().process(job["id"])["job"]["state"], jobs.AWAITING_APPROVAL)
+        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS, minutes=5)
+        current = metrics.business_metrics(self.biz, as_of=parse_date("2026-09-28"))["current"]
+        self.assertEqual((current["fix_rate"], current["edits"], current["send_backs"]), (1.0, 0, 1))
+
+    def test_rule_files_in_a_workspace_load_together(self):
+        self.assertTrue(RuleSet.for_business(self.ws, self.biz).get("BK-012"))
 
     def test_no_jobs_no_crash(self):
         text = metrics.format_report(metrics.business_metrics(self.biz, as_of=parse_date("2026-09-28")))
@@ -94,14 +113,36 @@ class Deals(unittest.TestCase):
 
     def test_hard_fails_walk_away(self):
         for change in ({"licensing": "cpa"}, {"gm_candidate": False}, {"industry": "restaurants"},
-                       {"top_client_pct": 0.4}):
+                       {"top_client_pct": 0.31}, {"owner_transition_months": 0}, {"priced_on_ai_upside": True},
+                       {"ttm_sde": 200_000}):
             report = deals.score_deal({**self.deal, **change}, self.buy_box)
             self.assertEqual(report["verdict"], "WALK AWAY", change)
 
-    def test_rollover_triggers_the_sba_guarantee_warning(self):
+    def test_soft_misses_do_not_walk_away(self):
+        for change in ({"top_client_pct": 0.2}, {"years_in_business": 6}, {"clients": 60},
+                       {"billing_model": "hourly"}, {"owner_transition_months": 3}):
+            report = deals.score_deal({**self.deal, **change}, self.buy_box)
+            self.assertEqual(report["verdict"], "NEGOTIATE", change)
+            self.assertTrue(any(not c["ok"] and not c["hard"] for c in report["checks"]), change)
+
+    def test_walk_away_rules_come_from_the_buy_box(self):
+        box = {**self.buy_box, "hard_fail": {**self.buy_box["hard_fail"], "max_top_client_pct": 0.5,
+                                             "no_gm_candidate": False}}
+        for change in ({"top_client_pct": 0.4}, {"gm_candidate": False}):
+            self.assertEqual(deals.score_deal({**self.deal, **change}, box)["verdict"], "NEGOTIATE", change)
+
+    def test_billing_models_come_from_the_buy_box(self):
+        mixed = deals.score_deal({**self.deal, "billing_model": "mixed"}, self.buy_box)
+        check = next(c for c in mixed["checks"] if c["criterion"].startswith("Billing"))
+        self.assertTrue(check["warn_only"])
+        box = {**self.buy_box, "billing_models_ok": ["fixed_fee", "hourly"]}
+        hourly = deals.score_deal({**self.deal, "billing_model": "hourly"}, box)
+        self.assertTrue(next(c for c in hourly["checks"] if c["criterion"].startswith("Billing"))["ok"])
+
+    def test_rollover_is_flagged_as_unavailable_in_a_control_acquisition(self):
         deal = {**self.deal, "structure": {**self.deal["structure"], "rollover_pct": 0.2}}
         report = deals.score_deal(deal, self.buy_box)
-        self.assertTrue(any("guarantee" in w for w in report["warnings"]))
+        self.assertTrue(any("not available when you buy control" in w for w in report["warnings"]))
 
     def test_margin_model(self):
         flat = deals.margin_after_ai(0.55, 0.35, 0.0, 0.0, 0.0)

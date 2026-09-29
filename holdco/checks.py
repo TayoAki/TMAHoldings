@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Callable
 
 from holdco.config import Business, Workspace
-from holdco.rules import Rule, RuleSet
+from holdco.rules import KNOWN_CHECK_TYPES, Rule, RuleSet
 from holdco.util import money, read_csv, read_json
 
 SEVERITY_COST = {"blocker": 40, "major": 10, "minor": 3}
@@ -31,6 +31,7 @@ class CheckContext:
     rules: RuleSet
     job_type: str
     client: str | None
+    period: str | None = None
 
     def bank(self) -> list[dict]:
         if not self.inputs or not (self.inputs / "bank.csv").exists():
@@ -258,6 +259,65 @@ def check_chase_format(rule: Rule, ctx: CheckContext) -> list[dict]:
     return out
 
 
+def _stated_amount(body: str, label: str) -> float | None:
+    """The amount on a summary line like '- Net: -$1,234.50'."""
+    pattern = rf"^\s*[-*]?\s*{re.escape(label)}:\s*(-?)\s*\$?\s*(-?)([\d,]+(?:\.\d+)?)"
+    match = re.search(pattern, body, re.I | re.M)
+    if not match:
+        return None
+    value = float(match.group(3).replace(",", ""))
+    return -value if (match.group(1) or match.group(2)) else value
+
+
+def check_message_totals(rule: Rule, ctx: CheckContext) -> list[dict]:
+    """The numbers the client reads must be the numbers in the books."""
+    txns = ctx.data().get("transactions")
+    if not isinstance(txns, list):
+        return []
+    body = (ctx.deliverable.get("client_message", {}) or {}).get("body_markdown", "")
+    amounts = [float(t["amount"]) for t in txns]
+    truth = {"Money in": round(sum(a for a in amounts if a > 0), 2),
+             "Money out": round(sum(-a for a in amounts if a < 0), 2),
+             "Net": round(sum(amounts), 2)}
+    out = []
+    for label, value in truth.items():
+        stated = _stated_amount(body, label)
+        if stated is None:
+            out.append(finding(rule, "major", "client_message.body_markdown", f"The Summary doesn't state '{label}'.",
+                               f"Add '- {label}: {money(value)}'."))
+        elif (abs(stated - value) if label == "Net" else abs(abs(stated) - value)) >= 0.005:
+            out.append(finding(rule, "blocker", "client_message.body_markdown",
+                               f"The message says {label} is {money(stated)} but the books say {money(value)}.",
+                               f"Write {money(value)}."))
+    ties = re.search(r"ties to your statement:\s*(yes|no)", body, re.I)
+    status = (ctx.data().get("reconciliation") or {}).get("status")
+    if ties and status and (ties.group(1).lower() == "yes") != (status == "tied"):
+        out.append(finding(rule, "blocker", "client_message.body_markdown",
+                           f"The message says the bank {'ties' if ties.group(1).lower() == 'yes' else 'does not tie'} "
+                           f"but the reconciliation status is '{status}'.", "Make the message match the reconciliation."))
+    return out
+
+
+def check_period_matches(rule: Rule, ctx: CheckContext) -> list[dict]:
+    """The books are for the job's month: statement, data and every transaction date agree."""
+    period = ctx.period
+    out = []
+    data_period = ctx.data().get("period")
+    statement_period = ctx.statement().get("period")
+    for label, value in (("draft", data_period), ("bank statement", statement_period)):
+        if period and value and value != period:
+            out.append(finding(rule, "blocker", "data.period", f"The job is for {period} but the {label} is for {value}.",
+                               "Use the documents for the job's month, or ask a person."))
+    month = period or statement_period or data_period
+    if month:
+        strays = [t["id"] for t in ctx.data().get("transactions", []) or [] if not str(t.get("date", "")).startswith(month)]
+        if strays:
+            out.append(finding(rule, "blocker", "data.transactions",
+                               f"{len(strays)} transaction(s) are dated outside {month}: {', '.join(strays[:5])}.",
+                               "Only include the month's transactions, or ask a person."))
+    return out
+
+
 CHECKS: dict[str, Callable[[Rule, CheckContext], list[dict]]] = {
     "reconciliation_tied": check_reconciliation,
     "transactions_match_input": check_transactions_match_input,
@@ -270,15 +330,19 @@ CHECKS: dict[str, Callable[[Rule, CheckContext], list[dict]]] = {
     "required_sections": check_required_sections,
     "signoff": check_signoff,
     "chase_message_format": check_chase_format,
+    "message_totals": check_message_totals,
+    "period_matches": check_period_matches,
 }
 # Check types used by other stages (intake, preparer defaults) rather than review.
 NON_REVIEW_CHECKS = {"document_checklist", "receipt_threshold", "vendor_map"}
+assert set(CHECKS) | NON_REVIEW_CHECKS == KNOWN_CHECK_TYPES, "keep rules.KNOWN_CHECK_TYPES in step with CHECKS"
 
 
 def run_checks(ws: Workspace, biz: Business, job_type: str, client: str | None, deliverable: dict,
-               inputs: Path | None, answers: dict | None = None, rules: RuleSet | None = None) -> list[dict]:
+               inputs: Path | None, answers: dict | None = None, rules: RuleSet | None = None,
+               period: str | None = None) -> list[dict]:
     rules = rules or RuleSet.for_business(ws, biz)
-    ctx = CheckContext(deliverable, inputs, answers or {}, rules, job_type, client)
+    ctx = CheckContext(deliverable, inputs, answers or {}, rules, job_type, client, period)
     findings: list[dict] = []
     for rule in rules.for_job(job_type, client):
         check_type = (rule.check or {}).get("type")

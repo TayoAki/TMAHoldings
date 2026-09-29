@@ -75,3 +75,17 @@ non-negotiable global rule.
 - **Rule:** A document chase names every missing item (what, date, amount), says how to send it, and stays under 180 words.
 - **Why:** Vague chases get ignored. Specific, short ones get answered the same day.
 - **Check:** `{"type": "chase_message_format", "max_words": 180}`
+
+## BK-011 · The message states the numbers in the books
+- **Applies to:** monthly-close
+- **Scope:** all
+- **Rule:** The Summary's "Money in", "Money out" and "Net" lines equal the included transactions to the cent, and "Bank balance ties to your statement" says yes only when the reconciliation is tied.
+- **Why:** The client reads the message, not the data file. A wrong total in the email is a wrong answer, even if the attachment is right.
+- **Check:** `{"type": "message_totals"}`
+
+## BK-012 · The books are for the job's month
+- **Applies to:** monthly-close
+- **Scope:** all
+- **Rule:** The bank statement, the draft's period and every transaction date match the month the job is for. If the documents are for a different month, stop and ask a person.
+- **Why:** Closing August with July's statement, or sending "Your October books" built from August data, is a factual error the client may never notice.
+- **Check:** `{"type": "period_matches"}`

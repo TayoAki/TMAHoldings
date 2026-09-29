@@ -13,15 +13,24 @@ from __future__ import annotations
 from holdco import corrections, jobs
 from holdco.config import Business, HoldcoError
 from holdco.guard import ExecutionContext, require_human
-from holdco.util import append_jsonl, now_iso, read_json, write_json
+from holdco.util import append_jsonl, now_iso, read_json, read_jsonl, write_json
 
 DEFAULT_CRITERIA = {"min_jobs": 20, "max_diff_rate": 0.25, "max_factual_errors_last_10": 0}
 MODES = (jobs.SHADOW, jobs.ASSISTED)
 
 
+def last_change(biz: Business, job_type: str) -> str | None:
+    """When this job type's mode last changed (for example a rollback after an incident)."""
+    entries = [e for e in read_jsonl(biz.dir / "rollout-log.jsonl") if e["job_type"] == job_type]
+    return entries[-1]["at"] if entries else None
+
+
 def graduation_report(biz: Business, job_type: str, last: int = 20, criteria: dict | None = None) -> dict:
+    """Evidence only counts from the latest mode change: after a rollback, graduation starts over."""
     criteria = {**DEFAULT_CRITERIA, **(biz.setting("graduation") or {}), **(criteria or {})}
-    shadowed = sorted((j for j in jobs.list_jobs(biz) if j["type"] == job_type and j.get("shadow")),
+    since = last_change(biz, job_type)
+    shadowed = sorted((j for j in jobs.list_jobs(biz) if j["type"] == job_type and j.get("shadow")
+                       and (since is None or j["shadow"]["at"] > since)),
                       key=lambda j: j["shadow"]["at"])[-last:]
     ids = {j["id"] for j in shadowed}
     factual_by_job: dict[str, int] = {}

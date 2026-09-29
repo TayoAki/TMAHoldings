@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from holdco import jobs
+from holdco import guard, jobs, keys
 from holdco.config import Workspace
 from holdco.guard import ExecutionContext
 from holdco.runners import get_runner
@@ -17,13 +19,24 @@ from holdco.util import freeze_clock, reset_clock
 REPO = Path(__file__).resolve().parent.parent
 BIZ = "demo-bookkeeping"
 DANA = "Dana Ruiz"
+OWNER = "Morgan Hale"
+PASS = "test passphrase for Dana"  # fictional; each test gets its own key store
+OWNER_PASS = "test passphrase for Morgan"
 HUMAN = ExecutionContext.human_terminal()
+REAL_ENVIRONMENT = guard.environment  # tests patch guard.environment; this is the real check
 AGENT = ExecutionContext(interactive=False, agent=True)
 SCRIPT = ExecutionContext(interactive=False, agent=False)
 
 
+def as_person_at_terminal(case: unittest.TestCase) -> None:
+    """Make the real-environment check see a person at a terminal (tests run inside agent sessions)."""
+    patcher = mock.patch("holdco.guard.environment", return_value=(True, False))
+    patcher.start()
+    case.addCleanup(patcher.stop)
+
+
 class WorkspaceCase(unittest.TestCase):
-    """Each test gets a fresh copy of shared/ and the demo business."""
+    """Each test gets a fresh copy of shared/ and the demo business, and its own key store."""
 
     def setUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp(prefix="holdco-test-"))
@@ -35,6 +48,11 @@ class WorkspaceCase(unittest.TestCase):
         self.biz = self.ws.business(BIZ)
         self.inbox = self.biz.dir / "inbox"
         freeze_clock("2026-09-01T12:00:00")
+        env = mock.patch.dict(os.environ, {"HOLDCO_KEYS_DIR": str(self.tmp / "keys")})
+        env.start()
+        self.addCleanup(env.stop)
+        as_person_at_terminal(self)
+        keys.add_key(self.biz, DANA, PASS, HUMAN)
 
     def tearDown(self) -> None:
         reset_clock()

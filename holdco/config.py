@@ -3,16 +3,26 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from holdco.util import read_json
 
 TEMPLATE_SLUG = "_template"
+SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
 
 
 class HoldcoError(Exception):
     """A problem the operator can fix (bad input, missing file, wrong state)."""
+
+
+def safe_id(value: str, what: str) -> str:
+    """Ids become folder names: letters, digits, dot, dash, underscore; no path tricks."""
+    if not isinstance(value, str) or not SAFE_ID.match(value) or ".." in value:
+        raise HoldcoError(f"{what} {value!r} is not allowed: use letters, digits, '.', '-' or '_' "
+                          "(no slashes, no leading dot, no '..').")
+    return value
 
 
 def find_root(start: Path | None = None) -> Path:
@@ -52,6 +62,10 @@ class Business:
     @property
     def approvers(self) -> list[str]:
         return list(self.config.get("approvers", []))
+
+    @property
+    def owners(self) -> list[str]:
+        return list(self.config.get("owners", []))
 
     @property
     def jobs_dir(self) -> Path:
@@ -122,7 +136,7 @@ class Workspace:
         return self.root / "thesis" / "buy-box.json"
 
     def business(self, slug: str) -> Business:
-        directory = self.businesses_dir / slug
+        directory = self.businesses_dir / safe_id(slug, "Business")
         config_path = directory / "business.json"
         if not config_path.exists():
             known = ", ".join(b.slug for b in self.list_businesses()) or "none yet"

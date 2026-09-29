@@ -1,18 +1,19 @@
 """Golden cases: real accepted work used to test the agents every time something changes.
 
 Each case is the original input a job started from plus the output a person
-approved. Running the eval re-does the work with today's agents and rules and
+accepted: what they approved or, in shadow mode, the version they did by hand. Running the eval re-does the work with today's agents and rules and
 compares the material facts (not the wording) against what was accepted.
 """
 
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 
 from holdco import jobs, jobtypes
 from holdco.config import Business, HoldcoError, Workspace
 from holdco.diffing import Change, diff
-from holdco.util import now_iso, read_json, write_json
+from holdco.util import next_id, now_iso, read_json, sha256_json, write_json
 
 
 def list_cases(biz: Business) -> list[dict]:
@@ -21,17 +22,30 @@ def list_cases(biz: Business) -> list[dict]:
     return [read_json(p) for p in sorted(biz.golden_dir.glob("G-*/case.json"))]
 
 
-def create_case_from_job(ws: Workspace, biz: Business, job_id: str, rule_ids: list[str]) -> str:
+def accepted_output(biz: Business, job_id: str) -> tuple[dict, Path]:
+    """The output a person accepted for a job: what they approved or, in shadow mode, their own version."""
     job = jobs.load_job(biz, job_id)
-    approved = jobs.job_dir(biz, job_id) / "approved.json"
-    if not job.get("approval") or not approved.exists():
-        raise HoldcoError(f"{job_id} was never approved, so it has no accepted output to test against.")
+    folder = jobs.job_dir(biz, job_id)
+    if job.get("eval_case"):
+        raise HoldcoError(f"{job_id} is an eval job, not accepted work.")
+    for record, name in ((job.get("approval"), "approved.json"), (job.get("shadow"), "human-version.json")):
+        if record and (folder / name).exists():
+            if record.get("sha256") and sha256_json(read_json(folder / name)) != record["sha256"]:
+                raise HoldcoError(f"{name} for {job_id} changed after {record['by']} signed off on it; "
+                                  "it can't be used as a test (runbook 06).")
+            return job, folder / name
+    raise HoldcoError(f"{job_id} was never approved or shadow-compared, so it has no accepted output to test "
+                      "against yet. Accept the proposal once it is.")
+
+
+def create_case_from_job(ws: Workspace, biz: Business, job_id: str, rule_ids: list[str]) -> str:
+    job, approved = accepted_output(biz, job_id)
     for case in list_cases(biz):
         if case["source_job"] == job_id:
             case["rule_ids"] = sorted(set(case["rule_ids"]) | set(rule_ids))
             write_json(biz.golden_dir / case["id"] / "case.json", case)
             return case["id"]
-    case_id = f"G-{len(list_cases(biz)) + 1:04d}"
+    case_id = next_id("G", (c["id"] for c in list_cases(biz)))
     folder = biz.golden_dir / case_id
     source_input = jobs.job_dir(biz, job_id) / "input"
     if source_input.is_dir():

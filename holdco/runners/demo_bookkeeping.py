@@ -215,8 +215,9 @@ class DemoBookkeepingRunner:
 
     # --------------------------------------------------------- reviewer
 
-    def review(self, job_type: str, client: str, inputs: Path, deliverable: dict, answers: dict) -> dict:
-        findings = run_checks(self.ws, self.biz, job_type, client, deliverable, inputs, answers, self.rules)
+    def review(self, job_type: str, client: str, inputs: Path, deliverable: dict, answers: dict,
+               period: str | None = None) -> dict:
+        findings = run_checks(self.ws, self.biz, job_type, client, deliverable, inputs, answers, self.rules, period)
         result = verdict(findings, self.biz.setting("review_pass_score", 80))
         blockers = sum(f["severity"] == "blocker" for f in findings)
         summary = ("All checks passed." if not findings else
@@ -234,7 +235,8 @@ class DemoBookkeepingRunner:
             raise HoldcoError(f"The demo runner does not handle {job['type']} jobs.")
         if job["type"] == "document-chase":
             if job["state"] == jobs.DRAFTED:
-                review = self.review(job["type"], job["client"], inputs, jobs.latest_draft(self.biz, job), {})
+                review = self.review(job["type"], job["client"], inputs, jobs.latest_draft(self.biz, job), {},
+                                     job["period"])
                 job = jobs.record_review(self.ws, self.biz, job_id, review)
                 steps.append(f"reviewer checked chase {job_id}: {job['reviews'][-1]['verdict']} "
                              f"(score {review['score']})")
@@ -255,7 +257,7 @@ class DemoBookkeepingRunner:
                 steps.append(f"preparer stopped to ask a human: {draft['question']}")
                 break
             job = jobs.record_draft(self.ws, self.biz, job_id, draft)
-            review = self.review(job["type"], job["client"], inputs, draft, job["answers"])
+            review = self.review(job["type"], job["client"], inputs, draft, job["answers"], job["period"])
             job = jobs.record_review(self.ws, self.biz, job_id, review)
             last = job["reviews"][-1]
             detail = "" if last["verdict"] == "PASS" else ": " + "; ".join(f["issue"] for f in last["findings"][:2])
@@ -270,7 +272,7 @@ class DemoBookkeepingRunner:
             draft = self.prepare(job_type, client, inputs, period, feedback, answers)
             if draft.get("status") == "needs_human":
                 return draft
-            review = self.review(job_type, client, inputs, draft, answers)
+            review = self.review(job_type, client, inputs, draft, answers, period)
             if review["verdict"] == "PASS":
                 return draft
             feedback = review["findings"]

@@ -1,21 +1,24 @@
 """Command line for the holdco.
 
 Agents may run anything here except the human-only commands (approve,
-send-back, send, answer, cancel, shadow, rollout, rules accept, rules reject),
-which refuse to run inside an agent session or without an interactive terminal.
+send-back, send, answer, cancel, shadow, rollout, rules accept, rules reject,
+keys add, outbox verify), which refuse to run inside an agent session or without
+an interactive terminal. Approve and send also ask for the approver's passphrase.
 
     python3 -m holdco --help
+    python3 -m holdco <command> ... --root <workspace>   (--root works anywhere)
 """
 
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import shutil
 import sys
 from pathlib import Path
 
-from holdco import corrections, deals, golden, jobs, jobtypes, metrics, rollout
+from holdco import corrections, deals, golden, jobs, jobtypes, keys, metrics, rollout
 from holdco.checks import run_checks
 from holdco.config import TEMPLATE_SLUG, HoldcoError, Workspace, find_root
 from holdco.diffing import coerce_value, set_path
@@ -38,7 +41,13 @@ def _print_json(data) -> None:
 
 
 def _ws(args) -> Workspace:
-    return Workspace(Path(args.root).resolve() if args.root else find_root())
+    root = getattr(args, "root", None)
+    return Workspace(Path(root).resolve() if root else find_root())
+
+
+def _passphrase(person: str, prompt: str = "passphrase") -> str:
+    """Read a passphrase from the terminal without echoing it."""
+    return getpass.getpass(f"{person}'s {prompt}: ")
 
 
 # ------------------------------------------------------------------ setup
@@ -55,11 +64,14 @@ def cmd_new_business(args) -> int:
         raise HoldcoError(f"No template at {template}.")
     shutil.copytree(template, target)
     config = read_json(target / "business.json")
-    config.update(name=args.name, industry=args.industry, gm=args.gm, approvers=[args.gm],
+    owners = [o.strip() for o in args.owner if o.strip()]
+    config.update(name=args.name, industry=args.industry, gm=args.gm, approvers=[args.gm], owners=owners,
                   rule_prefix="R-" + slug.upper().replace("-", "")[:8], demo=False)
     write_json(target / "business.json", config)
     print(f"Created {target}. Next: fill in README.md, clients.md/csv, people.md and rules.md "
           f"(runbook: shared/runbooks/01-day-one-takeover.md).")
+    print(f"Each approver and owner sets a passphrase once, in their own terminal: "
+          f"python3 -m holdco keys add {slug} --by \"<name>\"")
     if ws.industry_rules_file(args.industry) and not ws.industry_rules_file(args.industry).exists():
         print(f"Note: no industry rules yet at {ws.industry_rules_file(args.industry)}; copy bookkeeping.md as a start.")
     return 0
@@ -71,7 +83,8 @@ def cmd_sandbox(args) -> int:
         raise HoldcoError(f"{target} is not empty.")
     target.mkdir(parents=True, exist_ok=True)
     shutil.copytree(REPO_ROOT / "shared", target / "shared")
-    shutil.copytree(REPO_ROOT / "businesses" / "demo-bookkeeping", target / "businesses" / "demo-bookkeeping")
+    for name in ("demo-bookkeeping", TEMPLATE_SLUG):
+        shutil.copytree(REPO_ROOT / "businesses" / name, target / "businesses" / name)
     shutil.copytree(REPO_ROOT / "thesis", target / "thesis")
     print(f"Sandbox ready at {target}. Use --root {args.path} (or HOLDCO_ROOT={args.path}) with any command.")
     return 0
@@ -101,9 +114,13 @@ def cmd_status(args) -> int:
     return cmd_queue(args)
 
 
+AGENT_TURN = {jobs.RECEIVED: "intake", jobs.READY: "preparer", jobs.DRAFTED: "reviewer",
+              jobs.BLOCKED: "preparer (revise)"}
+
+
 def cmd_queue(args) -> int:
     ws = _ws(args)
-    rows = []
+    rows, agent_rows, client_rows = [], [], []
     for biz in ws.list_businesses():
         for job in jobs.list_jobs(biz):
             if job["state"] == jobs.AWAITING_APPROVAL:
@@ -115,8 +132,19 @@ def cmd_queue(args) -> int:
                 rows.append(f"  ANSWER   {biz.slug} {job['id']}  {question.get('question', '')[:90]}")
             elif job["state"] == jobs.APPROVED:
                 rows.append(f"  SEND     {biz.slug} {job['id']}  (approved by {job['approval']['by']})")
+            elif job["state"] in AGENT_TURN:
+                agent_rows.append(f"  {job['state'].upper():9} {biz.slug} {job['id']}  next: {AGENT_TURN[job['state']]}")
+            elif job["state"] == jobs.WAITING_ON_CLIENT:
+                client_rows.append(f"  WAITING  {biz.slug} {job['id']}  (chase: {', '.join(job['children']) or '-'})")
     print("Waiting on a person:" if rows else "Nothing is waiting on a person.")
-    print("\n".join(rows))
+    if rows:
+        print("\n".join(rows))
+    if agent_rows:
+        print("\nWaiting on the agents (run the holdco-process-job workflow, or `run` for the demo firm):")
+        print("\n".join(agent_rows))
+    if client_rows:
+        print("\nWaiting on the client:")
+        print("\n".join(client_rows))
     return 0
 
 
@@ -145,8 +173,9 @@ def cmd_job_list(args) -> int:
     out = []
     for biz in businesses:
         for job in jobs.list_jobs(biz, args.state, include_eval=args.all):
-            out.append({"business": biz.slug, "id": job["id"], "type": job["type"], "client": job["client"],
-                        "state": job["state"], "drafts": len(job["drafts"])})
+            out.append({"business": biz.slug, "job": job["id"], "id": job["id"], "type": job["type"],
+                        "client": job["client"], "period": job.get("period"), "state": job["state"],
+                        "drafts": len(job["drafts"])})
     if args.json:
         _print_json(out)
     else:
@@ -250,7 +279,7 @@ def cmd_check(args) -> int:
     biz = ws.business(args.business)
     job = jobs.load_job(biz, args.job)
     findings = run_checks(ws, biz, job["type"], job["client"], jobs.latest_draft(biz, job),
-                          jobs.job_dir(biz, args.job) / "input", job.get("answers"))
+                          jobs.job_dir(biz, args.job) / "input", job.get("answers"), period=job.get("period"))
     if args.json:
         _print_json(findings)
     elif not findings:
@@ -287,12 +316,20 @@ def cmd_approve(args) -> int:
         print(f"{len(changes)} change(s) vs the agent's draft v{job['drafts'][-1]['version']}:")
     reasons, notes = _categorize(changes, default_reason)
     review = job["reviews"][-1] if job["reviews"] else {}
-    _confirm(f"Approve {args.job} for {job['client']} (review {review.get('verdict')}, score {review.get('score')})"
-             f" as {args.by}?", "approve")
+    word = "approve and send" if args.send else "approve"
+    _confirm(f"{word.capitalize()} {args.job} for {job['client']} (review {review.get('verdict')}, score "
+             f"{review.get('score')}) as {args.by}?", word)
+    passphrase = _passphrase(args.by)
     job = jobs.approve(ws, biz, args.job, args.by, ctx, final=final, reasons=reasons, default_reason=default_reason,
-                       notes=notes or None, minutes=args.minutes, note=args.note, override_checks=args.override_checks)
-    print(f"Approved by {args.by} ({job['approval']['changes']} edit(s) logged). "
-          f"Send it with: python3 -m holdco send {biz.slug} {args.job} --by \"{args.by}\"")
+                       notes=notes or None, minutes=args.minutes, note=args.note, override_checks=args.override_checks,
+                       passphrase=passphrase)
+    print(f"Approved and signed by {args.by} ({job['approval']['changes']} edit(s) logged).")
+    if args.send:
+        job = jobs.send(biz, args.job, args.by, ctx, passphrase=passphrase)
+        print(f"Released to {biz.dir / job['sent']['outbox']}. Check it with `python3 -m holdco outbox verify "
+              f"{biz.slug} --by \"{args.by}\"`, then deliver it from your normal email or portal.")
+    else:
+        print(f"Send it with: python3 -m holdco send {biz.slug} {args.job} --by \"{args.by}\"")
     return 0
 
 
@@ -385,8 +422,54 @@ def cmd_send(args) -> int:
     require_human(ctx, biz, "send", args.by)
     job = jobs.load_job(biz, args.job)
     _confirm(f"Release {args.job} to {job['client']}'s outbox as {args.by}?", "send")
-    job = jobs.send(biz, args.job, args.by, ctx)
-    print(f"Released to {biz.dir / job['sent']['outbox']}. Deliver it from your normal email or portal.")
+    job = jobs.send(biz, args.job, args.by, ctx, passphrase=_passphrase(args.by))
+    print(f"Released to {biz.dir / job['sent']['outbox']}. Check it with `python3 -m holdco outbox verify "
+          f"{biz.slug} --by \"{args.by}\"`, then deliver it from your normal email or portal.")
+    return 0
+
+
+def cmd_outbox_verify(args) -> int:
+    ws = _ws(args)
+    biz = ws.business(args.business)
+    ctx = ExecutionContext.detect()
+    require_human(ctx, biz, "outbox verify", args.by)
+    results = jobs.verify_outbox(biz, args.by, ctx, _passphrase(args.by))
+    if not results:
+        print(f"{biz.slug} has nothing in its outbox.")
+    for r in results:
+        mark = "OK  " if r["ok"] else ("SKIP" if r["ok"] is None else "FAIL")
+        print(f"[{mark}] {r['item']}" + "".join(f"\n       {problem}" for problem in r["problems"]))
+    failed = [r for r in results if r["ok"] is False]
+    if failed:
+        print(f"\n{len(failed)} item(s) failed. Do not deliver them; treat it as an incident (runbook 06).")
+    return 1 if failed else 0
+
+
+def cmd_keys_add(args) -> int:
+    ws = _ws(args)
+    biz = ws.business(args.business)
+    ctx = ExecutionContext.detect()
+    require_human(ctx, biz, "keys add", args.by)
+    old = _passphrase(args.by, "current passphrase") if args.rotate else None
+    first = _passphrase(args.by, f"new passphrase (at least {keys.MIN_LENGTH} characters)")
+    if first != _passphrase(args.by, "new passphrase again"):
+        raise HoldcoError("The passphrases don't match. Nothing changed.")
+    record = keys.add_key(biz, args.by, first, ctx, old_passphrase=old)
+    print(f"Key {record['key_id']} saved for {args.by} at {keys.key_path(biz, args.by)} (readable only by you). "
+          "Nobody can recover the passphrase: if it's lost, remove the file and add a new key.")
+    return 0
+
+
+def cmd_keys_list(args) -> int:
+    ws = _ws(args)
+    biz = ws.business(args.business)
+    rows = keys.list_keys(biz)
+    have = {r["person"] for r in rows}
+    for r in rows:
+        print(f"{r['person']:24} key {r['key_id']}  since {r['created_at'][:10]}")
+    for person in sorted(set(biz.approvers) | set(biz.owners)):
+        if person not in have:
+            print(f"{person:24} NO KEY: python3 -m holdco keys add {biz.slug} --by \"{person}\"")
     return 0
 
 
@@ -531,6 +614,9 @@ def cmd_eval(args) -> int:
     ws = _ws(args)
     biz = ws.business(args.business)
     report = golden.run_eval(ws, biz, get_runner(ws, biz, args.runner, set(args.without or [])))
+    if not report["cases"]:
+        raise HoldcoError(f"{biz.slug} has no golden cases, so there is nothing to pass. They are created when a "
+                          "person accepts a proposed rule (runbook 05).")
     if args.json:
         _print_json(report)
     else:
@@ -585,10 +671,29 @@ def cmd_model_margin(args) -> int:
 # ----------------------------------------------------------------- parser
 
 
+ROOT_HELP = "workspace root (default: HOLDCO_ROOT or the nearest folder with shared/ + businesses/)"
+
+
+class _Sub:
+    """Subcommands that accept --root anywhere and never guess abbreviated options."""
+
+    def __init__(self, action):
+        self.action = action
+
+    def add_parser(self, name: str, **kwargs) -> argparse.ArgumentParser:
+        parser = self.action.add_parser(name, allow_abbrev=False, **kwargs)
+        parser.add_argument("--root", default=argparse.SUPPRESS, help=ROOT_HELP)
+        return parser
+
+
+def _subcommands(parser: argparse.ArgumentParser, dest: str) -> _Sub:
+    return _Sub(parser.add_subparsers(dest=dest, required=True))
+
+
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="holdco", description="TMA Holdings operating system.")
-    p.add_argument("--root", help="workspace root (default: HOLDCO_ROOT or the nearest folder with shared/ + businesses/)")
-    sub = p.add_subparsers(dest="command", required=True)
+    p = argparse.ArgumentParser(prog="holdco", description="TMA Holdings operating system.", allow_abbrev=False)
+    p.add_argument("--root", default=None, help=ROOT_HELP)
+    sub = _subcommands(p, "command")
 
     s = sub.add_parser("status", help="overview of every business and what is waiting on a person")
     s.set_defaults(fn=cmd_status)
@@ -606,9 +711,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--name", required=True)
     s.add_argument("--industry", required=True)
     s.add_argument("--gm", required=True, help="the GM's name (first approver)")
+    s.add_argument("--owner", action="append", required=True,
+                   help="the holdco owner's name (rules, rollout, incidents); repeat for more than one")
     s.set_defaults(fn=cmd_new_business)
 
-    job = sub.add_parser("job", help="create and inspect jobs").add_subparsers(dest="job_cmd", required=True)
+    job = _subcommands(sub.add_parser("job", help="create and inspect jobs"), "job_cmd")
     s = job.add_parser("new")
     s.add_argument("business")
     s.add_argument("--type", required=True)
@@ -676,6 +783,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--minutes", type=float, help="minutes of your time this job took (Monday metric)")
     s.add_argument("--note")
     s.add_argument("--override-checks", metavar="REASON", help="approve despite failing blocker checks, with a reason")
+    s.add_argument("--send", action="store_true", help="release it to the outbox right after approving")
     s.set_defaults(fn=cmd_approve)
     s = sub.add_parser("shadow", help="HUMAN ONLY: shadow mode, log how the agent draft differs from your own work")
     s.add_argument("business")
@@ -707,11 +815,25 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--note", required=True)
     s.add_argument("--reason", required=True)
     s.set_defaults(fn=cmd_send_back)
-    s = sub.add_parser("send", help="HUMAN ONLY: release approved work to the outbox")
+    s = sub.add_parser("send", help="HUMAN ONLY: release approved work to the outbox (signed)")
     s.add_argument("business")
     s.add_argument("job")
     s.add_argument("--by", required=True)
     s.set_defaults(fn=cmd_send)
+    outbox = _subcommands(sub.add_parser("outbox", help="check what was released"), "outbox_cmd")
+    s = outbox.add_parser("verify", help="HUMAN ONLY: check every released item's signature and files")
+    s.add_argument("business")
+    s.add_argument("--by", required=True)
+    s.set_defaults(fn=cmd_outbox_verify)
+    key_cmds = _subcommands(sub.add_parser("keys", help="approver passphrases (signing keys)"), "keys_cmd")
+    s = key_cmds.add_parser("add", help="HUMAN ONLY: set (or --rotate) your passphrase for a business")
+    s.add_argument("business")
+    s.add_argument("--by", required=True)
+    s.add_argument("--rotate", action="store_true", help="replace an existing key (asks for the current passphrase)")
+    s.set_defaults(fn=cmd_keys_add)
+    s = key_cmds.add_parser("list", help="who has a key for a business")
+    s.add_argument("business")
+    s.set_defaults(fn=cmd_keys_list)
     s = sub.add_parser("answer", help="HUMAN ONLY: answer an agent's question")
     s.add_argument("business")
     s.add_argument("job")
@@ -725,7 +847,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--reason", required=True)
     s.set_defaults(fn=cmd_cancel)
 
-    corr = sub.add_parser("corrections", help="the corrections log").add_subparsers(dest="corr_cmd", required=True)
+    corr = _subcommands(sub.add_parser("corrections", help="the corrections log"), "corr_cmd")
     s = corr.add_parser("list")
     s.add_argument("business")
     s.add_argument("--since")
@@ -741,7 +863,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_corrections_review)
 
-    rules = sub.add_parser("rules", help="rules and proposals").add_subparsers(dest="rules_cmd", required=True)
+    rules = _subcommands(sub.add_parser("rules", help="rules and proposals"), "rules_cmd")
     s = rules.add_parser("list")
     s.add_argument("business")
     s.add_argument("--job-type")
@@ -769,8 +891,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--reason", required=True)
     s.set_defaults(fn=cmd_rules_reject)
 
-    gold = sub.add_parser("golden", help="golden cases (accepted work used as tests)").add_subparsers(
-        dest="golden_cmd", required=True)
+    gold = _subcommands(sub.add_parser("golden", help="golden cases (accepted work used as tests)"), "golden_cmd")
     s = gold.add_parser("list")
     s.add_argument("business")
     s.add_argument("--json", action="store_true")
@@ -800,14 +921,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_metrics)
 
-    deal = sub.add_parser("deal", help="screen an acquisition target").add_subparsers(dest="deal_cmd", required=True)
+    deal = _subcommands(sub.add_parser("deal", help="screen an acquisition target"), "deal_cmd")
     s = deal.add_parser("score")
     s.add_argument("file")
     s.add_argument("--buy-box", help="default: thesis/buy-box.json")
     s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_deal_score)
 
-    model = sub.add_parser("model", help="planning models").add_subparsers(dest="model_cmd", required=True)
+    model = _subcommands(sub.add_parser("model", help="planning models"), "model_cmd")
     s = model.add_parser("margin", help="where margins go when agents take over part of the work")
     s.add_argument("--labor", type=float, default=0.55, help="labor cost as a share of revenue")
     s.add_argument("--other", type=float, default=0.35, help="all other costs as a share of revenue")

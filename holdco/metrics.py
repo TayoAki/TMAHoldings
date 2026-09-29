@@ -2,7 +2,8 @@
 
 1. Profit margin                  financials.csv (month, revenue, costs)
 2. Human minutes per job          minutes recorded at approval
-3. How often agent drafts need fixing   approvals with at least one edit
+3. How often agent drafts need fixing   approvals a person edited or sent back first
+                                  (reviewer blocks are shown next to it)
 4. Client retention               clients.csv (since, status, left_on)
 5. Whether key people are happy and staying   pulse.csv (weekly GM check-in)
 
@@ -32,10 +33,15 @@ def _approvals(biz: Business, start: dt.date, end: dt.date) -> list[dict]:
     return out
 
 
+def _verdicts(job: dict, verdict: str) -> int:
+    return sum(1 for r in job.get("reviews", []) if r.get("verdict") == verdict)
+
+
 def _window_stats(biz: Business, start: dt.date, end: dt.date) -> dict:
     approved = _approvals(biz, start, end)
     minutes = [j["approval"]["minutes"] for j in approved if j["approval"].get("minutes") is not None]
-    fixed = [j for j in approved if j["approval"].get("edited")]
+    # A draft needed fixing if the approver edited it or had to send it back first.
+    fixed = [j for j in approved if j["approval"].get("edited") or _verdicts(j, "SENT_BACK")]
     escalations = sum(
         1 for j in approved for q in j.get("questions", []) if q.get("asked_by") in jobs.AGENT_ROLES
     )
@@ -44,6 +50,8 @@ def _window_stats(biz: Business, start: dt.date, end: dt.date) -> dict:
         "minutes_per_job": round(mean(minutes), 1) if minutes else None,
         "fix_rate": (len(fixed) / len(approved)) if approved else None,
         "edits": sum(j["approval"].get("changes", 0) for j in approved),
+        "send_backs": sum(_verdicts(j, "SENT_BACK") for j in approved),
+        "reviewer_blocks": sum(_verdicts(j, "BLOCK") for j in approved),
         "escalations": escalations,
     }
 
@@ -164,7 +172,8 @@ def format_report(report: dict) -> str:
                      f"{sh['manual_minutes_per_job']} min/job; agent matched the person on {pct(sh['agent_matched'], 0)}")
     lines.append(f"3. Drafts needing fixes ..... {pct(c['fix_rate'], 0)} "
                  f"{_arrow(c['fix_rate'], p['fix_rate'])} from {pct(p['fix_rate'], 0)} · "
-                 f"{c['edits']} edit(s), {c['escalations']} agent question(s) this window")
+                 f"{c['edits']} edit(s), {c['send_backs']} send-back(s) by people; "
+                 f"{c['reviewer_blocks']} reviewer block(s), {c['escalations']} agent question(s) this window")
     churn = "; churned: " + ", ".join(f"{x['name']} ({x['left_on']})" for x in r["churned"]) if r["churned"] else ""
     lines.append(f"4. Client retention ......... {pct(r['rate'])} over {r['days']} days "
                  f"({r['retained']}/{r['base']}){churn}")

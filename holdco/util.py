@@ -114,6 +114,29 @@ def sha256_json(data: Any) -> str:
     return hashlib.sha256(canonical_json(data).encode("utf-8")).hexdigest()
 
 
+def sha256_file(path: Path | str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def hash_tree(folder: Path | str) -> dict:
+    """sha256 of every file under a folder, keyed by relative path."""
+    folder = Path(folder)
+    if not folder.is_dir():
+        return {}
+    return {p.relative_to(folder).as_posix(): sha256_file(p)
+            for p in sorted(folder.rglob("*")) if p.is_file()}
+
+
+def next_id(prefix: str, existing: Iterable[str], width: int = 4) -> str:
+    """PREFIX-NNNN, one more than the highest existing number (safe after deletions)."""
+    numbers = [int(m.group(1)) for e in existing if (m := re.match(rf"^{re.escape(prefix)}-(\d+)$", e))]
+    return f"{prefix}-{(max(numbers) + 1) if numbers else 1:0{width}d}"
+
+
 def slugify(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 

@@ -1,5 +1,5 @@
 {
-  "_note": "DRAFT buy box for TMA Holdings. Thresholds are planning assumptions from 2025-26 market data (see docs/VIDEO-REVIEW.md, section 'Deal math'): confirm with a broker, an SBA lender and a CPA. `holdco deal score` reads this file.",
+  "_note": "DRAFT buy box for TMA Holdings. Thresholds are planning assumptions from 2025-26 market data (see docs/VIDEO-REVIEW.md, 'What the video leaves out' and 'The math'): confirm with a broker, an SBA lender and a CPA. `holdco deal score` reads this file; thesis/THESIS.md explains each value.",
   "industries": [
     "bookkeeping",
     "tax-prep"
@@ -10,6 +10,8 @@
   "revenue_min": 500000,
   "revenue_max": 3000000,
   "sde_min": 150000,
+  "min_years_in_business": 10,
+  "min_clients": 100,
   "max_price_to_sde": 3.0,
   "max_price_to_revenue": {
     "bookkeeping": 1.1,
@@ -22,5 +24,22 @@
   "max_top_client_pct": 0.15,
   "requires_gm_candidate": true,
   "min_owner_transition_months": 6,
-  "min_ai_addressable_work_pct": 0.3
+  "min_ai_addressable_work_pct": 0.3,
+  "billing_models_ok": [
+    "fixed_fee",
+    "subscription"
+  ],
+  "billing_models_warn": [
+    "mixed"
+  ],
+  "hard_fail": {
+    "_note": "Walk away when any of these is true (THESIS.md 'What we don't buy', runbook 08 'Walk away when').",
+    "industry_not_in_thesis": true,
+    "licensing_not_workable": true,
+    "min_dscr_today": 1.0,
+    "max_top_client_pct": 0.3,
+    "no_gm_candidate": true,
+    "owner_leaves_at_closing": true,
+    "priced_on_ai_upside": true
+  }
 }

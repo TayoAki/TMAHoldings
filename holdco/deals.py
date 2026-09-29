@@ -35,6 +35,18 @@ DEFAULT_STRUCTURE = {
     "gm_equity_pct": 0.0,            # profits interest / equity pool for the GM
 }
 
+# Walk-away rules. thesis/buy-box.json can change them under "hard_fail"; THESIS.md and runbook 08
+# list the same ones.
+DEFAULT_HARD_FAIL = {
+    "industry_not_in_thesis": True,
+    "licensing_not_workable": True,    # licensing would make us a passive owner of regulated work
+    "min_dscr_today": 1.0,             # coverage on today's earnings below this
+    "max_top_client_pct": 0.30,        # one client above this share of revenue
+    "no_gm_candidate": True,
+    "owner_leaves_at_closing": True,   # owner_transition_months == 0
+    "priced_on_ai_upside": True,       # the seller wants to be paid for what we would build
+}
+
 DEFAULT_SCENARIOS = [
     {"name": "Stress: 5% churn, no AI gains", "time_savings": 0.0, "capture_cost": 0.0, "capture_growth": 0.0,
      "churn": 0.05, "ai_cost_pct": 0.0},
@@ -168,6 +180,7 @@ def score_deal(deal: dict, buy_box: dict) -> dict:
     max_price = min(caps.values())
     binding = min(caps, key=caps.get)
 
+    hard_rules = {**DEFAULT_HARD_FAIL, **(buy_box.get("hard_fail") or {})}
     checks: list[dict] = []
 
     def add(name: str, ok: bool, detail: str, hard: bool = False, warn_only: bool = False) -> None:
@@ -175,18 +188,29 @@ def score_deal(deal: dict, buy_box: dict) -> dict:
                        "warn_only": warn_only})
 
     add("Industry is in the thesis", deal["industry"] in buy_box.get("industries", []),
-        f"{deal['industry']} vs {', '.join(buy_box.get('industries', []))}", hard=True)
+        f"{deal['industry']} vs {', '.join(buy_box.get('industries', []))}",
+        hard=hard_rules["industry_not_in_thesis"])
     licensing = deal.get("licensing", "none")
     add("Licensing is workable for us", licensing in buy_box.get("licensing_ok", ["none"]),
-        f"{licensing} (CPA attest work needs CPA majority ownership: see docs/PLAYBOOK.md)", hard=True)
+        f"{licensing} (who can own what: docs/VIDEO-REVIEW.md and runbook 08; CPA attest work needs CPA "
+        "majority ownership)", hard=hard_rules["licensing_not_workable"])
     lo, hi = buy_box.get("revenue_min", 0), buy_box.get("revenue_max", float("inf"))
     add("Revenue in range", lo <= revenue <= hi, f"{money(revenue)} (range {money(lo)} to {money(hi)})")
     add("SDE above minimum", sde >= buy_box.get("sde_min", 0),
         f"{money(sde)} (min {money(buy_box.get('sde_min', 0))})")
+    years = deal.get("years_in_business")
+    if years is not None and buy_box.get("min_years_in_business"):
+        add("Years in business", years >= buy_box["min_years_in_business"],
+            f"{years} years (min {buy_box['min_years_in_business']})")
+    clients = deal.get("clients")
+    if clients is not None and buy_box.get("min_clients"):
+        add("Number of clients", clients >= buy_box["min_clients"], f"{clients} (min {buy_box['min_clients']})")
     add("Price within max justified", price <= max_price,
         f"asking {money(price)} vs max {money(max_price)} (binding: {binding})")
+    floor = float(hard_rules["min_dscr_today"])
     add(f"DSCR on today's earnings >= {min_dscr}", dscr_peak >= min_dscr,
-        f"{dscr_peak:.2f}x at peak debt service (year 1: {dscr_year1:.2f}x)", hard=dscr_peak < 1.0)
+        f"{dscr_peak:.2f}x at peak debt service (year 1: {dscr_year1:.2f}x); under {floor:.2f}x means walk away",
+        hard=dscr_peak < floor)
     recurring = deal.get("recurring_revenue_pct")
     if recurring is not None:
         add("Recurring revenue", recurring >= buy_box.get("min_recurring_revenue_pct", 0.6),
@@ -194,24 +218,35 @@ def score_deal(deal: dict, buy_box: dict) -> dict:
     top = deal.get("top_client_pct")
     if top is not None:
         cap = buy_box.get("max_top_client_pct", 0.15)
-        add("Client concentration", top <= cap, f"top client {pct(top, 0)} of revenue (max {pct(cap, 0)})",
-            hard=top > 2 * cap)
+        limit = float(hard_rules["max_top_client_pct"])
+        add("Client concentration", top <= cap,
+            f"top client {pct(top, 0)} of revenue (max {pct(cap, 0)}; over {pct(limit, 0)} means walk away)",
+            hard=top > limit)
     if buy_box.get("requires_gm_candidate", True):
         add("A GM candidate already works there", bool(deal.get("gm_candidate")),
-            "the person who knows every client, ready to run it with real upside", hard=True)
+            "the person who knows every client, ready to run it with real upside",
+            hard=hard_rules["no_gm_candidate"])
     months = deal.get("owner_transition_months")
     if months is not None:
         need = buy_box.get("min_owner_transition_months", 6)
-        add("Owner stays long enough to hand over", months >= need, f"{months} months (min {need})")
+        add("Owner stays long enough to hand over", months >= need,
+            f"{months} months (min {need})" + ("; the owner leaves at closing" if months == 0 else ""),
+            hard=months == 0 and hard_rules["owner_leaves_at_closing"])
     billing = deal.get("billing_model")
     if billing is not None:
-        add("Billing lets us keep the savings", billing != "hourly",
-            f"{billing}: with hourly billing, doing the work faster shrinks revenue until pricing changes",
-            warn_only=billing == "mixed")
+        ok_models = buy_box.get("billing_models_ok", ["fixed_fee", "subscription"])
+        warn_models = buy_box.get("billing_models_warn", ["mixed"])
+        add("Billing lets us keep the savings", billing in ok_models,
+            f"{billing} (ok: {', '.join(ok_models)}): with hourly billing, doing the work faster shrinks revenue "
+            "until pricing changes", warn_only=billing in warn_models)
     ai_share = deal.get("ai_addressable_work_pct")
     if ai_share is not None:
         add("Enough of the work is agent-ready", ai_share >= buy_box.get("min_ai_addressable_work_pct", 0.3),
             f"{pct(ai_share, 0)} of hours (min {pct(buy_box.get('min_ai_addressable_work_pct', 0.3), 0)})")
+    if deal.get("priced_on_ai_upside") is not None:
+        add("Priced on today's earnings", not deal["priced_on_ai_upside"],
+            "the seller wants to be paid for the AI upside" if deal["priced_on_ai_upside"]
+            else "the seller prices on today's earnings", hard=hard_rules["priced_on_ai_upside"])
 
     warnings = _financing_warnings(st, fin)
     labor = float(deal.get("labor_cost_pct", 0.55))
@@ -271,10 +306,10 @@ def _financing_warnings(st: dict, fin: dict) -> list[str]:
         out.append("The seller note comes off standby before the loan is repaid: it will not count toward the SBA "
                    "equity injection, and debt service steps up when its payments start.")
     if st["rollover_pct"] > 0:
-        out.append("The seller keeps equity. With SBA money that only works as a partial change of ownership "
-                   "structured as a stock sale; a seller keeping under 20% must personally guarantee the loan for at "
-                   "least 2 years, and a new holding company owned by both buyer and seller is ineligible. In a first "
-                   "acquisition the seller cannot stay on as an owner or employee, only as a consultant.")
+        out.append("The seller keeps equity. That is not available when you buy control with SBA 7(a) money: the "
+                   "seller has to exit fully and can stay only as a consultant, and a new holding company owned by "
+                   "both buyer and seller is ineligible. If the seller must keep a stake, use a seller note on full "
+                   "standby instead, or non-SBA financing, and check the structure with your lender.")
     if st["earnout_pct"] > 0:
         out.append("Seller earnouts are not allowed on SBA 7(a) loans. Use a buyer rebate instead (for example a "
                    "12-month client-retention clawback) that pays down loan principal.")

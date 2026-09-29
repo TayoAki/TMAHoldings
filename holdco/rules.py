@@ -25,6 +25,13 @@ from holdco.config import Business, HoldcoError, Workspace
 HEADING = re.compile(r"^##\s+([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\s*(?:·|—|-|:)\s*(.+?)\s*$")
 FIELD = re.compile(r"^\s*[-*]\s+\*\*([^*]+?):\*\*\s*(.*)$")
 LAYER_ORDER = {"client": 0, "business": 1, "industry": 2, "global": 3}
+# Every check type the code implements (holdco/checks.py asserts it stays in step).
+KNOWN_CHECK_TYPES = {
+    "document_checklist", "receipt_threshold", "vendor_map", "vendor_category", "reconciliation_tied",
+    "transactions_match_input", "exclusions_explained", "uncategorized_have_questions",
+    "large_unknown_escalation", "no_phrases", "mask_numbers", "required_sections", "signoff",
+    "chase_message_format", "message_totals", "period_matches",
+}
 
 
 @dataclass
@@ -111,6 +118,9 @@ def _parse_check(rule_id: str, raw: str) -> dict:
         raise HoldcoError(f"Rule {rule_id}: the Check field is not valid JSON ({exc}).") from exc
     if not isinstance(check, dict) or "type" not in check:
         raise HoldcoError(f'Rule {rule_id}: the Check field needs an object with a "type".')
+    if check["type"] not in KNOWN_CHECK_TYPES:
+        raise HoldcoError(f"Rule {rule_id}: unknown check type {check['type']!r}. Known types: "
+                          f"{', '.join(sorted(KNOWN_CHECK_TYPES))} (see shared/rules/README.md).")
     return check
 
 

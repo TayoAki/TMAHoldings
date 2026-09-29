@@ -12,11 +12,12 @@ from pathlib import Path
 from tests.helpers import REPO, WorkspaceCase
 
 
-def cli(*args: str, root: Path, agent: bool = True, stdin: str | None = None) -> subprocess.CompletedProcess:
+def cli(*args: str, root: Path | None, agent: bool = True, stdin: str | None = None) -> subprocess.CompletedProcess:
     env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "HOLDCO_AGENT")}
     if agent:
         env["CLAUDECODE"] = "1"
-    return subprocess.run([sys.executable, "-m", "holdco", "--root", str(root), *args], cwd=REPO, env=env,
+    prefix = ["--root", str(root)] if root else []
+    return subprocess.run([sys.executable, "-m", "holdco", *prefix, *args], cwd=REPO, env=env,
                           input=stdin, capture_output=True, text=True, timeout=60)
 
 
@@ -27,7 +28,9 @@ class Cli(WorkspaceCase):
                      ["send", "demo-bookkeeping", job["id"], "--by", "Dana Ruiz"],
                      ["answer", "demo-bookkeeping", job["id"], "--by", "Dana Ruiz", "--text", "x"],
                      ["cancel", "demo-bookkeeping", job["id"], "--by", "Dana Ruiz", "--reason", "x"],
-                     ["rules", "accept", "demo-bookkeeping", "P-0001", "--by", "Dana Ruiz"]):
+                     ["rules", "accept", "demo-bookkeeping", "P-0001", "--by", "Dana Ruiz"],
+                     ["keys", "add", "demo-bookkeeping", "--by", "Dana Ruiz"],
+                     ["outbox", "verify", "demo-bookkeeping", "--by", "Dana Ruiz"]):
             result = cli(*args, root=self.tmp)
             self.assertEqual(result.returncode, 3, (args, result.stdout, result.stderr))
             self.assertIn("REFUSED", result.stderr)
@@ -56,12 +59,55 @@ class Cli(WorkspaceCase):
             self.assertEqual(result.returncode, 0, (args, result.stderr))
         self.assertIn("APPROVE", cli("queue", root=self.tmp).stdout)
 
+    def test_root_works_after_the_command_and_options_are_never_guessed(self):
+        self.to_approval()
+        after = cli("queue", "--root", str(self.tmp), root=None)
+        self.assertEqual(after.returncode, 0, after.stderr)
+        self.assertIn("APPROVE", after.stdout)
+        nested = cli("job", "list", "demo-bookkeeping", "--root", str(self.tmp), "--json", root=None)
+        self.assertEqual(nested.returncode, 0, nested.stderr)
+        abbreviated = cli("--roo", str(self.tmp), "queue", root=None)
+        self.assertEqual(abbreviated.returncode, 2)
+
+    def test_job_list_json_feeds_the_workflow_as_is(self):
+        self.to_approval()
+        import json
+
+        rows = json.loads(cli("job", "list", "demo-bookkeeping", "--json", root=self.tmp).stdout)
+        self.assertEqual(rows[0]["job"], rows[0]["id"])
+        self.assertEqual(rows[0]["period"], "2026-08")
+
+    def test_queue_shows_what_the_agents_owe_too(self):
+        self.new_job()
+        out = cli("queue", root=self.tmp).stdout
+        self.assertIn("Waiting on the agents", out)
+        self.assertIn("next: intake", out)
+
+    def test_eval_with_no_golden_cases_is_not_a_pass(self):
+        result = cli("eval", "demo-bookkeeping", root=self.tmp)
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertIn("no golden cases", result.stderr)
+
+    def test_keys_list_shows_who_still_needs_a_key(self):
+        out = cli("keys", "list", "demo-bookkeeping", root=self.tmp).stdout
+        self.assertIn("Dana Ruiz", out)
+        self.assertIn("Morgan Hale              NO KEY", out)
+
+    def test_sandbox_can_create_a_new_business(self):
+        box = self.tmp / "box"
+        made = cli("sandbox", str(box), root=None)
+        self.assertEqual(made.returncode, 0, made.stderr)
+        new = cli("new-business", "harbor-books", "--name", "Harbor Books", "--industry", "bookkeeping",
+                  "--gm", "Pat Lee", "--owner", "Morgan Hale", root=box)
+        self.assertEqual(new.returncode, 0, new.stderr)
+
     def test_new_business_from_template(self):
         result = cli("new-business", "harbor-books", "--name", "Harbor Books", "--industry", "bookkeeping",
-                     "--gm", "Pat Lee", root=self.tmp)
+                     "--gm", "Pat Lee", "--owner", "Morgan Hale", root=self.tmp)
         self.assertEqual(result.returncode, 0, result.stderr)
         biz = self.ws.business("harbor-books")
-        self.assertEqual((biz.gm, biz.approvers, biz.is_demo), ("Pat Lee", ["Pat Lee"], False))
+        self.assertEqual((biz.gm, biz.approvers, biz.owners, biz.is_demo),
+                         ("Pat Lee", ["Pat Lee"], ["Morgan Hale"], False))
 
 
 class Demo(unittest.TestCase):
@@ -72,7 +118,7 @@ class Demo(unittest.TestCase):
                                      str(Path(tmp) / "ws")], cwd=REPO, env=env, capture_output=True, text=True,
                                     timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("PROOF SUMMARY: 20/20 held", result.stdout)
+        self.assertIn("PROOF SUMMARY: 22/22 held", result.stdout)
 
 
 if __name__ == "__main__":

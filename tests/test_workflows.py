@@ -17,7 +17,7 @@ import unittest
 from holdco import corrections, golden, jobs
 from holdco.diffing import set_path
 from holdco.util import freeze_clock, parse_date
-from tests.helpers import DANA, HUMAN, REPO, WorkspaceCase
+from tests.helpers import DANA, HUMAN, PASS, REPO, WorkspaceCase
 
 WORKFLOWS = REPO / ".claude" / "workflows"
 HARNESS = REPO / "tests" / "workflows" / "harness.mjs"
@@ -99,7 +99,7 @@ class Workflows(WorkspaceCase):
             for txn in final["data"]["transactions"]:
                 if "HOME DEPOT" in txn["description"]:
                     final = set_path(final, f"data.transactions[{txn['id']}].category", "Materials (COGS)")
-            jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, final=final, default_reason="client_preference")
+            jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS, final=final, default_reason="client_preference")
 
     def test_weekly_review_records_the_repeat_for_a_person(self):
         self._two_months_of_home_depot_fixes()

@@ -3,11 +3,18 @@
   "industry": "bookkeeping",
   "demo": false,
   "gm": "REPLACE: GM name",
-  "approvers": ["REPLACE: GM name"],
+  "approvers": [
+    "REPLACE: GM name"
+  ],
+  "owners": [
+    "REPLACE: your name (the holdco owner)"
+  ],
   "rule_prefix": "R-REPLACE",
   "review_pass_score": 80,
   "max_drafts": 3,
-  "metric_job_types": ["monthly-close"],
+  "metric_job_types": [
+    "monthly-close"
+  ],
   "rollout": {
     "monthly-close": "shadow"
   },

@@ -57,7 +57,10 @@ A blocker check that fails blocks the draft even if the reviewer agent passed it
 | `required_sections` | review | the message has these `##` sections | `sections`, `severity` (major) |
 | `signoff` | review | the message is signed this way | `text`, `severity` (minor) |
 | `chase_message_format` | review | a chase names every missing item and stays under the word limit | `max_words` |
+| `message_totals` | review | the Summary's Money in / Money out / Net equal the included transactions, and "ties to your statement" matches the reconciliation | — |
+| `period_matches` | review | the statement, the draft's period and every transaction date match the job's month | — |
 
-New check types are small Python functions in `holdco/checks.py`. Add one only when the
+New check types are small Python functions in `holdco/checks.py` (add each to `CHECKS` there and
+to `KNOWN_CHECK_TYPES` in `holdco/rules.py`; an unknown type fails loudly). Add one only when the
 same rule keeps being broken and can be verified exactly; a plain-English rule is enough
 for everything else.

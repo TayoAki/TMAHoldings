@@ -3,11 +3,18 @@
   "industry": "bookkeeping",
   "demo": true,
   "gm": "Dana Ruiz",
-  "approvers": ["Dana Ruiz"],
+  "approvers": [
+    "Dana Ruiz"
+  ],
+  "owners": [
+    "Morgan Hale"
+  ],
   "rule_prefix": "R-DEMO",
   "review_pass_score": 80,
   "max_drafts": 3,
-  "metric_job_types": ["monthly-close"],
+  "metric_job_types": [
+    "monthly-close"
+  ],
   "rollout": {
     "monthly-close": "assisted",
     "document-chase": "assisted"

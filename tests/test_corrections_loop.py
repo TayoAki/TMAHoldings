@@ -9,8 +9,8 @@ from holdco.config import HoldcoError
 from holdco.diffing import set_path
 from holdco.guard import HumanOnlyError
 from holdco.rules import RuleSet
-from holdco.util import freeze_clock, parse_date
-from tests.helpers import AGENT, DANA, HUMAN, WorkspaceCase
+from holdco.util import freeze_clock, parse_date, read_json, write_json
+from tests.helpers import AGENT, DANA, HUMAN, PASS, WorkspaceCase
 
 MATERIALS = "Materials (COGS)"
 
@@ -38,7 +38,7 @@ class Loop(WorkspaceCase):
         for txn in draft["data"]["transactions"]:
             if "HOME DEPOT" in txn["description"]:
                 final = set_path(final, f"data.transactions[{txn['id']}].category", MATERIALS)
-        return jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, final=final,
+        return jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS, final=final,
                             default_reason="client_preference", minutes=10)
 
     def test_full_loop(self):
@@ -126,30 +126,65 @@ class Loop(WorkspaceCase):
 
 
 class CuratedProposals(WorkspaceCase):
-    def test_agent_proposals_need_real_evidence_and_a_person_to_accept(self):
+    def _shell_fix(self) -> dict:
         job = self.to_approval()
         final = set_path(jobs.latest_draft(self.biz, job), "data.transactions[T-0803].category", "Vehicle Fuel")
-        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, final=final, default_reason="client_preference")
+        return jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS, final=final,
+                            default_reason="client_preference")
+
+    def test_agent_proposals_need_real_evidence_and_a_person_to_accept(self):
+        first, second = self._shell_fix(), self._shell_fix()
         draft = {"title": "Acme: Shell is Vehicle Fuel", "applies_to": "monthly-close", "scope": "client:acme",
                  "rule_text": 'For Acme, categorize SHELL OIL as "Vehicle Fuel".', "why": "Maria asked twice.",
                  "check": {"type": "vendor_category", "match": "SHELL OIL", "category": "Vehicle Fuel"},
-                 "evidence": ["C-0001"], "golden_candidates": [job["id"]]}
+                 "evidence": ["C-0001", "C-0002"], "golden_candidates": [first["id"], second["id"]]}
         with self.assertRaises(HoldcoError):
             corrections.create_proposal(self.ws, self.biz, {**draft, "evidence": ["C-9999"]})
         with self.assertRaises(HoldcoError):
             corrections.create_proposal(self.ws, self.biz, {**draft, "check": {"type": "made_up"}})
+        with self.assertRaisesRegex(HoldcoError, "two separate jobs"):
+            corrections.create_proposal(self.ws, self.biz, {**draft, "evidence": ["C-0001"]})
         proposal = corrections.create_proposal(self.ws, self.biz, draft)
         with self.assertRaises(HoldcoError):
             corrections.create_proposal(self.ws, self.biz, draft)
         with self.assertRaises(HumanOnlyError):
             corrections.accept_proposal(self.ws, self.biz, proposal["id"], DANA, AGENT)
         accepted = corrections.accept_proposal(self.ws, self.biz, proposal["id"], DANA, HUMAN)
-        self.assertEqual(len(accepted["golden_cases"]), 1)
+        self.assertEqual(len(accepted["golden_cases"]), 2)
         self.assertEqual(golden.run_eval(self.ws, self.biz, self.runner())["failed"], 0)
+
+    def test_a_rule_waits_until_its_evidence_jobs_are_accepted_work(self):
+        july = []
+        for _ in range(2):
+            job = self.runner().process(self.new_job("2026-07")["id"])["job"]
+            self.assertEqual(job["state"], jobs.NEEDS_HUMAN)
+            jobs.answer(self.biz, job["id"], "Owner's Draw", DANA, HUMAN)
+            july.append(job["id"])
+        report = corrections.review(self.ws, self.biz, as_of=parse_date("2026-09-01"))
+        proposal = report["new_proposals"][0]
+        self.assertEqual(sorted(proposal["evidence_jobs"]), sorted(july))
+        rules_before = self.biz.rules_file.read_text()
+        with self.assertRaisesRegex(HoldcoError, "never approved"):
+            corrections.accept_proposal(self.ws, self.biz, proposal["id"], DANA, HUMAN)
+        self.assertEqual(self.biz.rules_file.read_text(), rules_before, "a failed accept must not add half a rule")
+        self.assertEqual(golden.list_cases(self.biz), [])
+        for job_id in july:
+            self.assertEqual(self.runner().process(job_id)["job"]["state"], jobs.AWAITING_APPROVAL)
+            jobs.approve(self.ws, self.biz, job_id, DANA, HUMAN, passphrase=PASS)
+        accepted = corrections.accept_proposal(self.ws, self.biz, proposal["id"], DANA, HUMAN)
+        self.assertEqual(len(accepted["golden_cases"]), 2)
+
+    def test_tampered_approved_output_cannot_become_a_test(self):
+        job = self.to_approval()
+        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS)
+        path = jobs.job_dir(self.biz, job["id"]) / "approved.json"
+        write_json(path, set_path(read_json(path), "client_message.subject", "changed"))
+        with self.assertRaisesRegex(HoldcoError, "changed after"):
+            golden.create_case_from_job(self.ws, self.biz, job["id"], ["R-DEMO-003"])
 
     def test_materialized_eval_job_skips_straight_to_ready(self):
         job = self.to_approval()
-        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN)
+        jobs.approve(self.ws, self.biz, job["id"], DANA, HUMAN, passphrase=PASS)
         case_id = golden.create_case_from_job(self.ws, self.biz, job["id"], ["R-DEMO-003"])
         eval_job = golden.materialize(self.ws, self.biz, case_id)
         self.assertEqual(eval_job["state"], jobs.READY)

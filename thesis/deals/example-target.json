@@ -4,6 +4,7 @@
   "licensing": "none",
   "location": "Mid-size US metro",
   "source": "Direct outreach after 8 months of wedge-service work (fictional)",
+  "years_in_business": 19,
   "ttm_revenue": 1400000,
   "ttm_sde": 360000,
   "replacement_comp": 110000,
@@ -17,6 +18,7 @@
   "owner_transition_months": 12,
   "billing_model": "fixed_fee",
   "ai_addressable_work_pct": 0.45,
+  "priced_on_ai_upside": false,
   "labor_cost_pct": 0.55,
   "structure": {
     "financing": "sba_7a",
